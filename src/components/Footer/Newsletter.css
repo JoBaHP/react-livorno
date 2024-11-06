@@ -1,0 +1,74 @@
+.app__newsletter-heading {
+  text-align: center; /* Center align the heading and SubHeading */
+  margin-bottom: 2rem; /* Add space between heading and input fields */
+}
+
+.app__newsletter-heading .subheading {
+  margin-bottom: 0.5rem; /* Adjust this value to move the SubHeading closer to the main heading */
+}
+
+.app__newsletter-heading .main-heading {
+  text-align: left; /* Left align the first paragraph */
+  margin-top: 0.5rem; /* Adjust this value to move the paragraph closer to the heading */
+}
+
+.app__newsletter-input {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.app__newsletter-input input,
+.app__newsletter-input textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.app__newsletter-input button {
+  align-self: flex-end;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  color: var(color-black);
+  cursor: pointer;
+}
+
+.app__newsletter-input button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+
+@media screen and (min-width: 2000px) {
+  .app__newsletter-input input {
+    font-size: 2rem;
+  }
+}
+
+@media screen and (max-width: 990px) {
+  .app__newsletter-input {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .app__newsletter-input input {
+    margin: 0 0 2rem 0;
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 650px) {
+  .app__newsletter {
+    padding: 2rem 0;
+    border: none;
+  }
+}
+
+@media screen and (max-width: 300px) {
+  .app__newsletter-heading h1 {
+    font-size: 32px;
+    line-height: 50px;
+  }
+}

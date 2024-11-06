@@ -1,7 +1,7 @@
 {
   "name": "react-livorno",
   "version": "0.1.0",
-  "homepage" : "https://JoBaHP.github.io/react-livorno",
+  "homepage": "https://JoBaHP.github.io/react-livorno",
   "private": true,
   "dependencies": {
     "@formspree/react": "^2.4.1",
@@ -22,7 +22,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy": "gh-pages -b master -d build"
   },
   "eslintConfig": {
     "extends": [

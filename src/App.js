@@ -17,6 +17,8 @@ import { useEffect, useState } from "react";
 ReactGA.initialize("G-EVKLDJZFZE");
 ReactGA.send("pageview");
 
+const imageUrl = require("./assets/chicken.jpg");
+
 const App = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -32,12 +34,7 @@ const App = () => {
     <div>
       <Navbar />
       <Header />
-      {isModalOpen && (
-        <Modal
-          imageUrl="/asse/lucas-andrade-3Uj0GwVmOeY-unsplash.jpg" // Example direct image URL
-          onClose={closeModal}
-        />
-      )}
+      {isModalOpen && <Modal imageUrl={imageUrl} onClose={closeModal} />}
       <AboutUs />
       {/* <SpecialMenu /> */}
       <Chef />

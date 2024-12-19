@@ -31,6 +31,7 @@ const FindUs = () => (
           href="https://www.google.com/maps/place/Livorno/@45.2405641,19.8122039,17z/data=!4m12!1m6!3m5!1s0x475b102f027dfc81:0x99b7651f319a4d51!2sLivorno!8m2!3d45.240545!4d19.8143887!3m4!1s0x475b102f027dfc81:0x99b7651f319a4d51!8m2!3d45.240545!4d19.8143887?hl=sr"
           target="_blank"
           style={{ display: "flex", alignItems: "center" }}
+          rel="noreferrer"
         >
           <i
             className="fas fa-map-marker-alt"

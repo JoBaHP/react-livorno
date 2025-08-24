@@ -1,6 +1,7 @@
 import React from "react";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
+import Navlink from "./Navlink";
 import images from "../../constants/images";
 import "./Navbar.css";
 
@@ -13,30 +14,19 @@ const Navbar = () => {
       </div>
       <ul className="app__navbar-links">
         <li className="p__opensans">
-          <a href="#home">Početna</a>
+          <Navlink to="/#home">Početna</Navlink>
         </li>
         <li className="p__opensans">
-          <a href="#about">O nama</a>
+          <Navlink to="/#about">O nama</Navlink>
         </li>
         <li className="p__opensans">
-          <button
-            type="button"
-            className="custom__button"
-            data-glf-cuid="b74b223c-5979-45d0-9b49-38f14d13c738"
-            data-glf-ruid="d960494f-3f45-43fc-a6ad-02a493448ec0"
-          >
-            <span>
-              {" "}
-              <i className="fas fa-utensils" style={{ marginRight: "8px" }}></i>
-            </span>
-            Meni
-          </button>
+          <Navlink to="/delivery">Poruči Online</Navlink>
         </li>
         <li className="p__opensans">
-          <a href="#awards">Doživljaj</a>
+          <Navlink to="/#awards">Doživljaj</Navlink>
         </li>
         <li className="p__opensans">
-          <a href="#contact">Kontact</a>
+          <Navlink to="/#contact">Kontakt</Navlink>
         </li>
       </ul>
       {/*       <div className="app__navbar-login">
@@ -48,7 +38,7 @@ const Navbar = () => {
           Rezervišite Sto
         </a>
       </div */}
-      >
+      
       <div className="app__navbar-smallscreen">
         <GiHamburgerMenu
           color="#fff"
@@ -64,29 +54,29 @@ const Navbar = () => {
             />
             <ul className="app__navbar-smallscreen_links">
               <li>
-                <a href="#home" onClick={() => setToggleMenu(false)}>
+                <Navlink to="/#home" onClick={() => setToggleMenu(false)}>
                   Početna
-                </a>
+                </Navlink>
               </li>
               <li>
-                <a href="#about" onClick={() => setToggleMenu(false)}>
+                <Navlink to="/#about" onClick={() => setToggleMenu(false)}>
                   O nama
-                </a>
+                </Navlink>
               </li>
               <li>
-                <a href="#menu" onClick={() => setToggleMenu(false)}>
-                  Meni
-                </a>
+                <Navlink to="/delivery" onClick={() => setToggleMenu(false)}>
+                  Poruči Online
+                </Navlink>
               </li>
               <li>
-                <a href="#awards" onClick={() => setToggleMenu(false)}>
+                <Navlink to="/#awards" onClick={() => setToggleMenu(false)}>
                   Doživljaj
-                </a>
+                </Navlink>
               </li>
               <li>
-                <a href="#contact" onClick={() => setToggleMenu(false)}>
-                  Kontact
-                </a>
+                <Navlink to="/#contact" onClick={() => setToggleMenu(false)}>
+                  Kontakt
+                </Navlink>
               </li>
             </ul>
           </div>

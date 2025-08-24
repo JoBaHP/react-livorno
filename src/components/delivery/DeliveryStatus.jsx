@@ -1,64 +1,69 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { CheckCircle, ChefHat, Truck, XCircle } from "lucide-react";
+import { playNotificationSound } from "../../audio";
 
-export default function DeliveryStatus({ order }) {
+export default function DeliveryStatus({ order, onBackToMenu }) {
+  const prevStatusRef = useRef();
+
+  useEffect(() => {
+    if (prevStatusRef.current && prevStatusRef.current !== order.status) {
+      playNotificationSound();
+    }
+    prevStatusRef.current = order.status;
+  }, [order.status]);
+
   const getStatusInfo = () => {
     const waitTimeDisplay = order?.wait_time || order?.waitTime;
 
     switch (order?.status) {
       case "pending":
         return {
-          text: "Order Placed Successfully!",
-          subtext: "We've received your order and will confirm it shortly.",
-          icon: <CheckCircle size={48} />,
-          color: "text-green-500",
+          text: "Order Placed!",
+          subtext: "We'll confirm it shortly.",
+          icon: <CheckCircle size={64} />,
+          color: "var(--color-golden)",
         };
       case "accepted":
         return {
-          text: "Your Order is Accepted!",
-          subtext: `Estimated delivery time is ${
-            waitTimeDisplay || "..."
-          } minutes.`,
-          icon: <ChefHat size={48} />,
-          color: "text-blue-500",
+          text: "Order Accepted!",
+          subtext: `Estimated delivery: ${waitTimeDisplay || "..."} mins.`,
+          icon: <ChefHat size={64} />,
+          color: "var(--color-golden)",
         };
       case "preparing":
         return {
-          text: "Your Food is Being Prepared!",
-          subtext: `Estimated delivery time is ${
-            waitTimeDisplay || "..."
-          } minutes.`,
-          icon: <ChefHat size={48} />,
-          color: "text-yellow-500",
+          text: "In the Kitchen!",
+          subtext: `Estimated delivery: ${waitTimeDisplay || "..."} mins.`,
+          icon: <ChefHat size={64} />,
+          color: "var(--color-golden)",
         };
-      case "ready": // Assuming 'ready' means it's out for delivery
+      case "ready":
         return {
           text: "Out for Delivery!",
-          subtext: "Your order is on its way to you.",
-          icon: <Truck size={48} />,
-          color: "text-indigo-500",
+          subtext: "Your order is on its way.",
+          icon: <Truck size={64} />,
+          color: "var(--color-golden)",
         };
       case "completed":
         return {
           text: "Order Delivered!",
           subtext: "Enjoy your meal!",
-          icon: <CheckCircle size={48} />,
-          color: "text-green-500",
+          icon: <CheckCircle size={64} />,
+          color: "var(--color-golden)",
         };
       case "declined":
         return {
           text: "Order Declined",
-          subtext:
-            "There was an issue with your order. Please contact us for more information.",
-          icon: <XCircle size={48} />,
-          color: "text-red-500",
-        };
+          subtext: "Please contact us for details.",
+          icon: <XCircle size={64} />,
+          color: "#D0021B",
+        }; // Using a distinct red for declined
       default:
         return {
-          text: "Order Placed Successfully!",
+          text: "Order Placed!",
           subtext: "We'll start preparing it right away.",
-          icon: <CheckCircle size={48} />,
-          color: "text-green-500",
+          icon: <CheckCircle size={64} />,
+          color: "var(--color-golden)",
         };
     }
   };
@@ -66,17 +71,25 @@ export default function DeliveryStatus({ order }) {
   const { text, subtext, icon, color } = getStatusInfo();
 
   return (
-    <div className="max-w-2xl mx-auto text-center bg-white p-8 rounded-2xl shadow-xl animate-fade-in">
-      <div className="flex flex-col items-center gap-4">
-        <div className={`${color} animate-pulse`}>{icon}</div>
-        <h2 className="text-3xl font-bold text-slate-800">{text}</h2>
-        <p className="text-lg text-slate-600">{subtext}</p>
+    <div className="max-w-2xl mx-auto text-center bg-black border border-golden p-8 rounded-lg">
+      <div className="flex flex-col items-center gap-4" style={{ color }}>
+        <div className="animate-pulse">{icon}</div>
+        <h1 className="headtext__cormorant">{text}</h1>
+        <p className="p__opensans" style={{ color: "var(--color-grey)" }}>
+          {subtext}
+        </p>
         {order && (
-          <p className="text-sm text-slate-500 mt-4">
+          <p
+            className="p__opensans text-sm"
+            style={{ color: "var(--color-grey)" }}
+          >
             Your order ID is #{order.id}
           </p>
         )}
       </div>
+      <button onClick={onBackToMenu} className="custom__button mt-8">
+        Back to Menu
+      </button>
     </div>
   );
 }

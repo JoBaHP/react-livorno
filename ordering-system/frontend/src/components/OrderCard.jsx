@@ -176,7 +176,10 @@ export default function OrderCard({ order, onUpdate }) {
                 <ul className="text-xs text-slate-500 pl-4 list-disc mt-1">
                   {selectedOptions.map((opt) => (
                     <li key={opt.id}>
-                      {opt.name} (+${parseFloat(opt.price).toFixed(2)})
+                      {opt.quantity > 1 ? `${opt.quantity} x ` : ""}
+                      {opt.name}
+                      {parseFloat(opt.price) > 0 &&
+                        ` (+$${parseFloat(opt.price).toFixed(2)})`}
                     </li>
                   ))}
                 </ul>

@@ -16,6 +16,10 @@
   --color-white: #ffffff;
 }
 
+#root {
+  background: var(--color-black);
+}
+
 * {
   box-sizing: border-box;
   padding: 0;

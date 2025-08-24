@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useApi } from "../../ApiProvider";
-import { Send, ArrowLeft } from "lucide-react";
+import {  ArrowLeft, Plus, Minus } from "lucide-react";
 
-// Helper function to load the address from localStorage
-const getInitialDetails = () => {
-  try {
-    const storedDetails = localStorage.getItem("deliveryDetails");
-    if (storedDetails) {
-      return JSON.parse(storedDetails);
-    }
-  } catch (error) {
-    console.error("Failed to parse delivery details from localStorage", error);
-  }
-  // Default empty state
-  return {
+export default function DeliveryCheckout({
+  cart,
+  onPlaceOrder,
+  onBackToMenu,
+  updateQuantity,
+  updateOptionQuantity,
+}) {
+  const [customerDetails, setCustomerDetails] = useState({
     name: "",
     phone: "",
     street: "",
@@ -21,26 +17,13 @@ const getInitialDetails = () => {
     floor: "",
     flat: "",
     notes: "",
-  };
-};
-
-export default function DeliveryCheckout({ cart, onPlaceOrder, onBackToMenu }) {
-  const [customerDetails, setCustomerDetails] = useState(getInitialDetails);
-  const [streetInput, setStreetInput] = useState(customerDetails.street || "");
+  });
+  const [streetInput, setStreetInput] = useState("");
   const [streetSuggestions, setStreetSuggestions] = useState([]);
   const [isSuggestionsVisible, setIsSuggestionsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const api = useApi();
-
-  // Save customer details to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem("deliveryDetails", JSON.stringify(customerDetails));
-    } catch (error) {
-      console.error("Could not save delivery details to localStorage:", error);
-    }
-  }, [customerDetails]);
 
   useEffect(() => {
     if (streetInput.length < 2) {
@@ -83,196 +66,207 @@ export default function DeliveryCheckout({ cart, onPlaceOrder, onBackToMenu }) {
   };
 
   const subtotal = cart.reduce((sum, item) => {
-    let itemTotal = parseFloat(item.price || 0);
-    if (item.selectedOptions) {
-      item.selectedOptions.forEach((opt) => {
-        itemTotal += parseFloat(opt.price || 0);
-      });
-    }
-    return sum + itemTotal * item.quantity;
+    const baseItemTotal = parseFloat(item.price || 0) * item.quantity;
+
+    const optionsTotal = item.selectedOptions
+      ? item.selectedOptions.reduce((optionSum, opt) => {
+          const optionPrice = parseFloat(opt.price || 0);
+          const optionQuantity = opt.quantity || 0;
+          return optionSum + optionPrice * optionQuantity;
+        }, 0)
+      : 0;
+
+    return sum + baseItemTotal + optionsTotal;
   }, 0);
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in">
-      <h2 className="text-4xl font-extrabold text-slate-800 text-center mb-8">
-        Checkout
-      </h2>
+    <div className="max-w-4xl mx-auto">
+      <h1 className="headtext__cormorant text-center mb-8">Checkout</h1>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
-          <h3 className="text-2xl font-bold text-slate-700 mb-4">
+        <div className="bg-black border border-golden p-6 rounded-lg">
+          <h3
+            className="p__cormorant text-2xl mb-4"
+            style={{ color: "var(--color-golden)" }}
+          >
             Your Information
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-600">
-                Full Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={customerDetails.name}
-                onChange={handleInputChange}
+            <FormInput
+              label="Full Name"
+              name="name"
+              value={customerDetails.name}
+              onChange={handleInputChange}
+              required
+            />
+            <FormInput
+              label="Phone Number"
+              name="phone"
+              type="tel"
+              value={customerDetails.phone}
+              onChange={handleInputChange}
+              required
+            />
+            <div className="relative">
+              <FormInput
+                label="Street"
+                name="street"
+                value={streetInput}
+                onChange={handleStreetInputChange}
+                onFocus={() => setIsSuggestionsVisible(true)}
+                onBlur={() =>
+                  setTimeout(() => setIsSuggestionsVisible(false), 200)
+                }
                 required
-                className="mt-1 block w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400"
+                placeholder="Type to search..."
+                autoComplete="off"
               />
+              {isSuggestionsVisible && streetSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-black border border-golden rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                  {streetSuggestions.map((s) => (
+                    <button
+                      type="button"
+                      key={s.id}
+                      onMouseDown={() => handleSuggestionClick(s.name)}
+                      className="block w-full text-left px-4 py-2 p__opensans hover:bg-gray-800"
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-600">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={customerDetails.phone}
-                onChange={handleInputChange}
-                required
-                className="mt-1 block w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="relative">
-                <label className="block text-sm font-medium text-slate-600">
-                  Street
-                </label>
-                <input
-                  type="text"
-                  name="street"
-                  value={streetInput}
-                  onChange={handleStreetInputChange}
-                  onFocus={() => setIsSuggestionsVisible(true)}
-                  onBlur={() =>
-                    setTimeout(() => setIsSuggestionsVisible(false), 200)
-                  }
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-400"
-                  placeholder="Type to search..."
-                  autoComplete="off"
-                />
-                {isSuggestionsVisible && streetSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                    {streetSuggestions.map((s) => (
-                      <button
-                        type="button"
-                        key={s.id}
-                        onMouseDown={() => handleSuggestionClick(s.name)}
-                        className="block w-full text-left px-4 py-2 hover:bg-slate-100"
-                      >
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600">
-                  Street Number
-                </label>
-                <input
-                  type="text"
-                  name="number"
-                  value={customerDetails.number}
-                  onChange={handleInputChange}
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600">
-                  Floor (optional)
-                </label>
-                <input
-                  type="text"
-                  name="floor"
-                  value={customerDetails.floor}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600">
-                  Apartment (optional)
-                </label>
-                <input
-                  type="text"
-                  name="flat"
-                  value={customerDetails.flat}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-600">
-                Order Notes (optional)
-              </label>
-              <textarea
-                name="notes"
-                value={customerDetails.notes}
-                onChange={handleInputChange}
-                rows="2"
-                className="mt-1 block w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400"
-                placeholder="e.g., no onions, allergy info"
-              ></textarea>
-            </div>
+            <FormInput
+              label="Street Number"
+              name="number"
+              value={customerDetails.number}
+              onChange={handleInputChange}
+              required
+            />
+            <FormInput
+              label="Floor (optional)"
+              name="floor"
+              value={customerDetails.floor}
+              onChange={handleInputChange}
+            />
+            <FormInput
+              label="Apartment (optional)"
+              name="flat"
+              value={customerDetails.flat}
+              onChange={handleInputChange}
+            />
+            <FormTextarea
+              label="Order Notes (optional)"
+              name="notes"
+              value={customerDetails.notes}
+              onChange={handleInputChange}
+            />
             {error && (
-              <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg">
-                {error}
-              </p>
+              <p className="text-red-500 text-sm p-3 rounded-lg">{error}</p>
             )}
             <div className="pt-4 flex items-center gap-4">
               <button
                 type="button"
                 onClick={onBackToMenu}
-                className="flex items-center justify-center gap-2 bg-slate-200 text-slate-700 px-6 py-3 rounded-lg font-semibold hover:bg-slate-300 transition-colors"
+                className="custom__button bg-gray-800 text-white flex items-center gap-2"
               >
                 <ArrowLeft size={18} /> Back to Menu
               </button>
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex-1 bg-green-500 text-white px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-green-600 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:bg-slate-400 disabled:shadow-inner"
+                className="custom__button flex-1 flex items-center justify-center gap-2"
               >
-                <Send size={18} />{" "}
                 {isLoading ? "Placing Order..." : "Confirm & Place Order"}
               </button>
             </div>
           </form>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
-          <h3 className="text-2xl font-bold text-slate-700 mb-4">
+        <div className="bg-black border border-golden p-6 rounded-lg">
+          <h3
+            className="p__cormorant text-2xl mb-4"
+            style={{ color: "var(--color-golden)" }}
+          >
             Order Summary
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
             {cart.map((item) => (
-              <div key={item.cartId} className="text-slate-600">
-                <div className="flex justify-between">
-                  <span className="font-semibold">
+              <div
+                key={item.cartId}
+                className="flex justify-between items-start p__opensans"
+              >
+                <div className="flex-grow">
+                  <p className="font-semibold">
                     {item.quantity} x {item.name}{" "}
                     {item.size && `(${item.size})`}
-                  </span>
-                  <span>
-                    ${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                  </span>
+                  </p>
+                  {item.selectedOptions?.length > 0 && (
+                    <ul
+                      className="text-xs pl-5 mt-1 space-y-1"
+                      style={{ color: "var(--color-grey)" }}
+                    >
+                      {item.selectedOptions.map((opt) => (
+                        <li key={opt.id} className="flex justify-between items-center">
+                          <span>
+                            {opt.name}{" "}
+                            {parseFloat(opt.price) > 0 &&
+                              `(+$${parseFloat(opt.price).toFixed(2)})`}
+                          </span>
+                          {parseFloat(opt.price) > 0 && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() =>
+                                  updateOptionQuantity(item.cartId, opt.id, -1)
+                                }
+                                className="custom__button !p-0 h-5 w-5 flex items-center justify-center"
+                              >
+                                <Minus size={10} />
+                              </button>
+                              <span className="p__cormorant text-sm w-5 text-center">
+                                {opt.quantity || 0}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  updateOptionQuantity(item.cartId, opt.id, 1)
+                                }
+                                className="custom__button !p-0 h-5 w-5 flex items-center justify-center"
+                              >
+                                <Plus size={10} />
+                              </button>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-                {item.selectedOptions?.length > 0 && (
-                  <ul className="text-xs text-slate-500 pl-5 list-disc mt-1">
-                    {item.selectedOptions.map((opt) => (
-                      <li key={opt.id}>
-                        {opt.name} (+${parseFloat(opt.price).toFixed(2)})
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  <button
+                    onClick={() => updateQuantity(item.cartId, -1)}
+                    className="custom__button !p-0 h-8 w-8 flex items-center justify-center"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span className="p__cormorant text-lg w-8 text-center">
+                    {item.quantity}
+                  </span>
+                  <button
+                    onClick={() => updateQuantity(item.cartId, 1)}
+                    className="custom__button !p-0 h-8 w-8 flex items-center justify-center"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-          <div className="mt-4 pt-4 border-t flex justify-between font-bold text-slate-800">
+          <div className="mt-4 pt-4 border-t border-golden flex justify-between font-bold p__cormorant">
             <span>Subtotal</span>
             <span>${subtotal.toFixed(2)}</span>
           </div>
-          <p className="text-sm text-slate-500 mt-2">
+          <p
+            className="text-sm p__opensans mt-2"
+            style={{ color: "var(--color-grey)" }}
+          >
             Delivery fee will be calculated based on your address.
           </p>
         </div>
@@ -280,3 +274,34 @@ export default function DeliveryCheckout({ cart, onPlaceOrder, onBackToMenu }) {
     </div>
   );
 }
+
+const FormInput = ({ label, ...props }) => (
+  <div>
+    <label
+      className="block text-sm font-medium p__opensans mb-1"
+      style={{ color: "var(--color-grey)" }}
+    >
+      {label}
+    </label>
+    <input
+      {...props}
+      className="mt-1 block w-full px-3 py-2 bg-gray-800 border border-golden rounded-md text-white p__opensans"
+    />
+  </div>
+);
+
+const FormTextarea = ({ label, ...props }) => (
+  <div>
+    <label
+      className="block text-sm font-medium p__opensans mb-1"
+      style={{ color: "var(--color-grey)" }}
+    >
+      {label}
+    </label>
+    <textarea
+      {...props}
+      rows="2"
+      className="mt-1 block w-full px-3 py-2 bg-gray-800 border border-golden rounded-md text-white p__opensans"
+    ></textarea>
+  </div>
+);

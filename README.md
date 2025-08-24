@@ -1,70 +1,133 @@
-# Getting Started with Create React App
+# Pizzeria Livorno - Full Stack Website & Ordering System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is a full-stack web application for "Pizzeria Livorno," featuring a complete online ordering system and a promotional marketing website. The project is designed to handle both customer-facing delivery orders and internal staff-facing order management.
 
-## Available Scripts
+![Pizzeria Livorno](https://user-images.githubusercontent.com/10152125/110191834-31a5d780-7e3b-11eb-913d-13a52c1e7a0e.png)
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## Key Features
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Customer-Facing
+- **Promotional Website:** A beautiful, static homepage built with React to attract customers.
+- **Online Delivery Menu:** A full menu where customers can browse items and place orders for delivery.
+- **Item Customization:** Customers can customize their orders with both paid (e.g., extra cheese) and free (e.g., no onions) options, including specifying quantities for paid extras.
+- **Real-Time Order Tracking:** After placing an order, customers can see live status updates as the staff accepts, prepares, and sends the order for delivery.
+- **Address Search:** An integrated address search helps customers easily find and validate their street for delivery.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Staff-Facing Ordering System
+- **Admin & Waiter Dashboard:** A secure, role-based system for staff to manage all incoming orders.
+- **Real-Time Order Notifications:** New orders appear on the dashboard in real-time with an audible notification, ensuring no order is missed.
+- **Complete Order Management:** Staff can accept, decline, and update the status of any order (e.g., "Preparing," "Ready for Delivery").
+- **Administrative Controls:** The admin panel allows for full management of:
+    - Menu Items & Customization Options
+    - Restaurant Tables
+    - Delivery Zones & Fees
+    - Street names for the delivery area
 
-### `npm test`
+---
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Tech Stack
 
-### `npm run build`
+- **Frontend (Main Website & Ordering System):**
+    - React
+    - React Router for navigation
+    - Socket.IO Client for real-time communication
+    - Tailwind CSS for styling
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- **Backend:**
+    - Node.js with Express
+    - PostgreSQL for the database
+    - Socket.IO for real-time WebSocket communication
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+---
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Project Structure
 
-### `npm run eject`
+The project is a monorepo containing three main parts:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```
+/
+├── ordering-system/
+│   ├── backend/      # Node.js API and WebSocket server
+│   └── frontend/     # React app for the Staff Dashboard
+│
+└── src/              # React app for the main public-facing website
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Setup and Installation
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+To get this project running locally, follow these steps.
 
-## Learn More
+### Prerequisites
+- Node.js (v16 or higher)
+- PostgreSQL
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### 1. Backend Setup
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+# Navigate to the backend directory
+cd ordering-system/backend
 
-### Code Splitting
+# Install dependencies
+npm install
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+# Create a .env file and configure your database connection
+# (See .env.example for required variables)
+cp .env.example .env
 
-### Analyzing the Bundle Size
+# Connect to PostgreSQL and run the schema to create tables
+# You can use the file: /ordering-system/backend/config/database_schema.sql
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### 2. Staff Frontend Setup
 
-### Making a Progressive Web App
+```bash
+# Navigate to the staff frontend directory
+cd ordering-system/frontend
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+# Install dependencies
+npm install
 
-### Advanced Configuration
+# Create a .env file to link to the backend API URL
+echo "REACT_APP_API_URL=http://localhost:5000" > .env
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### 3. Main Website Setup
 
-### Deployment
+```bash
+# Navigate to the project root
+cd ../..
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+# Install dependencies
+npm install
 
-### `npm run build` fails to minify
+# Create a .env file to link to the backend API URL for the delivery system
+echo "REACT_APP_API_URL=http://localhost:5000" > .env
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+---
+
+## How to Run the Application
+
+1.  **Start the Backend Server:**
+    ```bash
+    cd ordering-system/backend
+    npm start
+    ```
+
+2.  **Start the Staff Ordering System Frontend:**
+    ```bash
+    cd ordering-system/frontend
+    npm start
+    ```
+
+3.  **Start the Main Public Website:**
+    ```bash
+    # From the root directory
+    npm start
+    ```
+
+You will now have the main website running (usually on `localhost:3000`) and the staff dashboard running on another port (e.g., `localhost:3001`).

@@ -67,9 +67,7 @@ const Footer = () => (
 
     <div className="footer__copyright">
       <p className="p__opensans">
-        <a href="javascript:void(0)" target="_blank" rel="noopener noreferrer">
-          2022 BuildUP
-        </a>
+        <span>2022 BuildUP</span>
       </p>
     </div>
   </div>

@@ -1,9 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useApi } from "../../ApiProvider";
 import MenuItem from "../MenuItem";
-import { ChevronDown, Plus, ShoppingCart } from "lucide-react";
+import { ChevronDown, ShoppingCart, Plus, Minus } from "lucide-react";
 
-export default function DeliveryMenu({ cart = [], addToCart, onGoToCheckout }) {
+export default function DeliveryMenu({
+  cart = [],
+  addToCart,
+  onGoToCheckout,
+  updateQuantity,
+  updateCartForItem,
+}) {
   const [menu, setMenu] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [openCategory, setOpenCategory] = useState(null);
@@ -34,42 +40,53 @@ export default function DeliveryMenu({ cart = [], addToCart, onGoToCheckout }) {
     );
   };
 
+  const getQuantityInCart = (menuItemId) => {
+    return cart
+      .filter((item) => item.id === menuItemId)
+      .reduce((sum, item) => sum + item.quantity, 0);
+  };
+
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-4xl font-extrabold text-slate-800">
-          Order for Delivery
-        </h2>
-        <p className="mt-2 text-lg text-slate-600">
+        <h1 className="headtext__cormorant">Order for Delivery</h1>
+        <p
+          className="p__opensans"
+          style={{ color: "var(--color-grey)", marginTop: "1rem" }}
+        >
           Freshly prepared and delivered to your door.
         </p>
       </div>
       {isLoading ? (
-        <p>Loading menu...</p>
+        <p className="p__opensans text-center">Loading menu...</p>
       ) : (
         <div className="space-y-3">
           {categories.map((category) => (
             <div
               key={category}
-              className="bg-white rounded-xl shadow-sm overflow-hidden"
+              className="bg-black border border-golden rounded-lg overflow-hidden"
             >
               <button
                 onClick={() => handleCategoryToggle(category)}
-                className="w-full flex justify-between items-center p-4 hover:bg-slate-50 transition-colors"
+                className="w-full flex justify-between items-center p-4"
               >
-                <h3 className="text-2xl font-bold text-slate-700">
+                <h3
+                  className="p__cormorant"
+                  style={{ color: "var(--color-golden)" }}
+                >
                   {category}
                 </h3>
                 <ChevronDown
-                  className={`text-slate-500 transform transition-transform duration-300 ${
+                  className={`transition-transform duration-300 ${
                     openCategory === category ? "rotate-180" : ""
                   }`}
+                  style={{ color: "var(--color-golden)" }}
                 />
               </button>
               {openCategory === category && (
-                <div className="p-4 border-t border-slate-200">
+                <div className="p-4 border-t border-golden">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {menu
                       .filter((item) => item.category === category)
@@ -79,6 +96,8 @@ export default function DeliveryMenu({ cart = [], addToCart, onGoToCheckout }) {
                           item={item}
                           onCustomize={() => setCustomizingItem(item)}
                           onAddToCart={addToCart}
+                          updateQuantity={updateQuantity}
+                          quantityInCart={getQuantityInCart(item.id)}
                         />
                       ))}
                   </div>
@@ -91,15 +110,16 @@ export default function DeliveryMenu({ cart = [], addToCart, onGoToCheckout }) {
       {customizingItem && (
         <CustomizationModal
           item={customizingItem}
-          onAddToCart={addToCart}
+          cart={cart}
+          onUpdateCart={updateCartForItem}
           onClose={() => setCustomizingItem(null)}
         />
       )}
       {cartItemCount > 0 && (
-        <div className="sticky bottom-4 w-full flex justify-center animate-fade-in">
+        <div className="sticky bottom-4 w-full flex justify-center">
           <button
             onClick={onGoToCheckout}
-            className="bg-amber-500 text-white font-bold py-4 px-8 rounded-full shadow-lg hover:bg-amber-600 transition-transform transform hover:scale-105 flex items-center gap-3"
+            className="custom__button flex items-center gap-3"
           >
             <ShoppingCart />
             View Order ({cartItemCount} {cartItemCount > 1 ? "items" : "item"})
@@ -110,9 +130,62 @@ export default function DeliveryMenu({ cart = [], addToCart, onGoToCheckout }) {
   );
 }
 
-function CustomizationModal({ item, onAddToCart, onClose }) {
-  const [selectedSize, setSelectedSize] = useState(item.sizes?.[0] || null);
+function CustomizationModal({ item, cart, onUpdateCart, onClose }) {
+  const [selectedQuantities, setSelectedQuantities] = useState({});
   const [selectedOptions, setSelectedOptions] = useState([]);
+  const [
+    selectedOptionQuantities,
+    setSelectedOptionQuantities,
+  ] = useState({});
+  const modalRef = useRef();
+  useEffect(() => {
+    const initialQuantities = {};
+    const initialOptionQuantities = {};
+    const cartItems = cart.filter((cartItem) => cartItem.id === item.id);
+
+    if (cartItems.length > 0) {
+      setSelectedOptions(cartItems[0].selectedOptions || []);
+      cartItems.forEach((cartItem) => {
+        if (cartItem.size) {
+          initialQuantities[cartItem.size] =
+            (initialQuantities[cartItem.size] || 0) + cartItem.quantity;
+        }
+        cartItem.selectedOptions?.forEach((opt) => {
+          if (opt.quantity) {
+            initialOptionQuantities[opt.id] =
+              (initialOptionQuantities[opt.id] || 0) + opt.quantity;
+          }
+        });
+      });
+    }
+    setSelectedQuantities(initialQuantities);
+    setSelectedOptionQuantities(initialOptionQuantities);
+  }, [item, cart]);
+
+  const handleQuantityChange = (sizeName, amount) => {
+    setSelectedQuantities((prev) => ({
+      ...prev,
+      [sizeName]: Math.max(0, (prev[sizeName] || 0) + amount),
+    }));
+  };
+  const handleOptionQuantityChange = (optionId, amount) => {
+    setSelectedOptionQuantities((prev) => {
+      const newQuantity = (prev[optionId] || 0) + amount;
+      const newQuantities = { ...prev, [optionId]: Math.max(0, newQuantity) };
+
+      // Update selectedOptions for paid options
+      const option = item.options.find((o) => o.id === optionId);
+      if (parseFloat(option.price) > 0) {
+        if (newQuantity > 0 && !selectedOptions.some((o) => o.id === optionId)) {
+          setSelectedOptions([...selectedOptions, option]);
+        } else if (newQuantity === 0) {
+          setSelectedOptions(selectedOptions.filter((o) => o.id !== optionId));
+        }
+      }
+
+      return newQuantities;
+    });
+  };
 
   const handleOptionToggle = (option) => {
     setSelectedOptions((prev) =>
@@ -122,82 +195,149 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
     );
   };
 
-  const handleAddToCart = () => {
-    onAddToCart(item, selectedSize, selectedOptions);
+  const handleUpdateAndClose = () => {
+    const optionsWithQuantities = selectedOptions.map((opt) => {
+      const isPaid = parseFloat(opt.price) > 0;
+      return {
+        ...opt,
+        quantity: isPaid ? selectedOptionQuantities[opt.id] || 0 : 1,
+      };
+    });
+    onUpdateCart(item, selectedQuantities, optionsWithQuantities);
+    onClose();
   };
 
-  let currentPrice = selectedSize
-    ? parseFloat(selectedSize.price)
-    : parseFloat(item.price || 0);
-  selectedOptions.forEach(
-    (opt) => (currentPrice += parseFloat(opt.price || 0))
+  const handleOutsideClick = (e) => {
+    if (modalRef.current && !modalRef.current.contains(e.target)) {
+      onClose();
+    }
+  };
+  // Price calculation
+  let currentPrice = 0;
+/*  const totalQuantity = Object.values(selectedQuantities).reduce(
+    (sum, qty) => sum + qty,
+    0
   );
+*/
+  const optionsPrice = selectedOptions.reduce((sum, opt) => {
+    const isPaid = parseFloat(opt.price) > 0;
+    const quantity = isPaid ? selectedOptionQuantities[opt.id] || 0 : 1;
+    return sum + parseFloat(opt.price || 0) * quantity;
+  }, 0);
+
+  Object.entries(selectedQuantities).forEach(([sizeName, quantity]) => {
+    if (quantity > 0) {
+      const size = item.sizes.find((s) => s.name === sizeName);
+      const itemBasePrice = parseFloat(size.price);
+      currentPrice += itemBasePrice * quantity;
+    }
+  });
+  currentPrice += optionsPrice;
 
   const paidOptions =
     item?.options?.filter((o) => parseFloat(o.price) > 0) || [];
   const freeOptions =
-    item?.options?.filter((o) => parseFloat(o.price) === 0) || [];
+    item?.options?.filter(
+      (o) => !o.price || parseFloat(o.price) === 0
+    ) || [];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg max-h-full overflow-y-auto">
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">{item.name}</h2>
-        <p className="text-slate-600 mb-4">{item.description}</p>
+    <div
+      onClick={handleOutsideClick}
+      className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4"
+    >
+      <div
+        ref={modalRef}
+        className="bg-black border border-golden rounded-lg shadow-2xl p-6 w-full max-w-lg max-h-full overflow-y-auto"
+      >
+        <h2 className="headtext__cormorant mb-2">{item.name}</h2>
+        <p className="p__opensans mb-4" style={{ color: "var(--color-grey)" }}>
+          {item.description}
+        </p>
+
         {item.sizes && (
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-700 mb-2">Size</h3>
-            <div className="flex gap-2 flex-wrap">
+            <h3 className="p__cormorant mb-2">Size</h3>
+            <div className="space-y-2">
               {item.sizes.map((size) => (
-                <button
+                <div
                   key={size.name}
-                  onClick={() => setSelectedSize(size)}
-                  className={`px-3 py-1 text-sm rounded-full border-2 ${
-                    selectedSize?.name === size.name
-                      ? "bg-amber-400 text-white border-amber-400"
-                      : "bg-white text-slate-700 border-slate-300 hover:border-amber-400"
-                  }`}
+                  className="flex justify-between items-center"
                 >
-                  {size.name} - ${parseFloat(size.price).toFixed(2)}
-                </button>
+                  <span className="p__opensans">
+                    {size.name} - ${parseFloat(size.price).toFixed(2)}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleQuantityChange(size.name, -1)}
+                      className="custom__button !p-0 h-8 w-8 flex items-center justify-center"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="p__cormorant text-lg w-8 text-center">
+                      {selectedQuantities[size.name] || 0}
+                    </span>
+                    <button
+                      onClick={() => handleQuantityChange(size.name, 1)}
+                      className="custom__button !p-0 h-8 w-8 flex items-center justify-center"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         )}
+
         {paidOptions.length > 0 && (
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-700 mb-2">Extras</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <h3 className="p__cormorant mb-2">Extras</h3>
+            <div className="space-y-2">
               {paidOptions.map((opt) => (
-                <label
+                <div
                   key={opt.id}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
+                  className="flex justify-between items-center"
                 >
-                  <input
-                    type="checkbox"
-                    onChange={() => handleOptionToggle(opt)}
-                    className="h-4 w-4 rounded border-slate-300 text-amber-400 focus:ring-amber-400"
-                  />
-                  {opt.name} (+${parseFloat(opt.price).toFixed(2)})
-                </label>
+                  <span className="p__opensans">
+                    {opt.name} (+${parseFloat(opt.price).toFixed(2)})
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleOptionQuantityChange(opt.id, -1)}
+                      className="custom__button !p-0 h-8 w-8 flex items-center justify-center"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="p__cormorant text-lg w-8 text-center">
+                      {selectedOptionQuantities[opt.id] || 0}
+                    </span>
+                    <button
+                      onClick={() => handleOptionQuantityChange(opt.id, 1)}
+                      className="custom__button !p-0 h-8 w-8 flex items-center justify-center"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         )}
         {freeOptions.length > 0 && (
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-700 mb-2">
-              Add-ons (Free)
-            </h3>
+            <h3 className="p__cormorant mb-2">Add-ons (Free)</h3>
             <div className="grid grid-cols-2 gap-2">
               {freeOptions.map((opt) => (
                 <label
                   key={opt.id}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
+                  className="flex items-center gap-2 p-2 rounded-lg cursor-pointer p__opensans"
                 >
                   <input
                     type="checkbox"
+                    checked={selectedOptions.some((o) => o.id === opt.id)}
                     onChange={() => handleOptionToggle(opt)}
-                    className="h-4 w-4 rounded border-slate-300 text-amber-400 focus:ring-amber-400"
+                    className="h-4 w-4 rounded border-gray-300 text-golden-500 focus:ring-golden-500"
                   />
                   {opt.name}
                 </label>
@@ -205,23 +345,24 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
             </div>
           </div>
         )}
-        <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-200">
-          <span className="text-2xl font-bold text-slate-900">
+
+        <div className="flex justify-between items-center mt-6 pt-4 border-t border-golden">
+          <span className="text-2xl font-bold text-white">
             ${currentPrice.toFixed(2)}
           </span>
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="bg-slate-200 text-slate-800 px-4 py-2 rounded-lg font-semibold hover:bg-slate-300 transition-colors"
+              className="custom__button bg-gray-800 text-white"
             >
               Cancel
             </button>
             <button
-              onClick={handleAddToCart}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 flex items-center gap-2"
+              onClick={handleUpdateAndClose}
+              className="custom__button flex items-center gap-2"
             >
               <Plus size={18} />
-              Add to Order
+              Update Order
             </button>
           </div>
         </div>

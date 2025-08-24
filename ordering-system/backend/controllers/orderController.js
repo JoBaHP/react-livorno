@@ -9,7 +9,9 @@ exports.placeOrder = async (req, res) => {
     let itemTotal = parseFloat(item.price || 0);
     if (item.selectedOptions) {
       item.selectedOptions.forEach((opt) => {
-        itemTotal += parseFloat(opt.price || 0);
+        const optionPrice = parseFloat(opt.price || 0);
+        const optionQuantity = parseInt(opt.quantity || 1, 10);
+        itemTotal += optionPrice * optionQuantity;
       });
     }
     total += itemTotal * item.quantity;
@@ -124,7 +126,9 @@ exports.placeDeliveryOrder = async (req, res) => {
     let itemTotal = parseFloat(item.price || 0);
     if (item.selectedOptions) {
       item.selectedOptions.forEach((opt) => {
-        itemTotal += parseFloat(opt.price || 0);
+        const optionPrice = parseFloat(opt.price || 0);
+        const optionQuantity = parseInt(opt.quantity || 1, 10);
+        itemTotal += optionPrice * optionQuantity;
       });
     }
     total += itemTotal * item.quantity;

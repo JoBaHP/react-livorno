@@ -29,22 +29,19 @@ export default function OnlineOrderingPage() {
     }
   }, [cart]);
 
-  // --- NEW: This effect listens for real-time status updates ---
   useEffect(() => {
-    if (!order?.id) return; // Only listen if there's an active order
-
-    const onStatusUpdate = (updatedOrder) => {
-      if (updatedOrder.id === order.id) {
-        setOrder(updatedOrder); // Update the local order state
-      }
-    };
-
-    api.socket.on("order_status_update", onStatusUpdate);
-
-    return () => {
-      api.socket.off("order_status_update", onStatusUpdate);
-    };
-  }, [order, api.socket]);
+    if (order?.id) {
+      const handleOrderUpdate = (updatedOrder) => {
+        if (updatedOrder.id === order.id) {
+          setOrder(updatedOrder);
+        }
+      };
+      api.socket.on("order_status_update", handleOrderUpdate);
+      return () => {
+        api.socket.off("order_status_update", handleOrderUpdate);
+      };
+    }
+  }, [order?.id, api.socket]);
 
   const addToCart = (item, size, selectedOptions) => {
     const optionsId = selectedOptions
@@ -81,6 +78,51 @@ export default function OnlineOrderingPage() {
     setCart(updatedCart.filter((item) => item.quantity > 0));
   };
 
+  const updateOptionQuantity = (cartId, optionId, amount) => {
+    setCart(
+      cart.map((item) => {
+        if (item.cartId === cartId) {
+          const newOptions = item.selectedOptions.map((opt) => {
+            if (opt.id === optionId) {
+              const newQuantity = (opt.quantity || 0) + amount;
+              return { ...opt, quantity: Math.max(0, newQuantity) };
+            }
+            return opt;
+          });
+          return { ...item, selectedOptions: newOptions };
+        }
+        return item;
+      })
+    );
+  };
+
+  const updateCartForItem = (item, newQuantities, newOptions) => {
+    const otherItems = cart.filter((cartItem) => cartItem.id !== item.id);
+    let newCart = [...otherItems];
+
+    Object.entries(newQuantities).forEach(([sizeName, quantity]) => {
+      if (quantity > 0) {
+        const size = item.sizes.find((s) => s.name === sizeName);
+        const optionsId = newOptions
+          .map((o) => o.id)
+          .sort()
+          .join("-");
+        const cartId = `${item.id}-${size?.name || "std"}-${optionsId}`;
+
+        const newItem = {
+          ...item,
+          cartId,
+          quantity,
+          price: size ? size.price : item.price,
+          size: size ? size.name : null,
+          selectedOptions: newOptions,
+        };
+        newCart.push(newItem);
+      }
+    });
+    setCart(newCart);
+  };
+
   const placeDeliveryOrder = async (customerDetails) => {
     let fullAddress = `${customerDetails.street} ${customerDetails.number}`;
     if (customerDetails.floor)
@@ -114,10 +156,13 @@ export default function OnlineOrderingPage() {
             onPlaceOrder={placeDeliveryOrder}
             onBackToMenu={() => setView("menu")}
             updateQuantity={updateQuantity}
+            updateOptionQuantity={updateOptionQuantity}
           />
         );
       case "status":
-        return <DeliveryStatus order={order} />;
+        return (
+          <DeliveryStatus order={order} onBackToMenu={() => setView("menu")} />
+        );
       case "menu":
       default:
         return (
@@ -125,6 +170,8 @@ export default function OnlineOrderingPage() {
             cart={cart}
             addToCart={addToCart}
             onGoToCheckout={() => setView("checkout")}
+            updateQuantity={updateQuantity}
+            updateCartForItem={updateCartForItem}
           />
         );
     }

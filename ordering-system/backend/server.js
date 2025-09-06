@@ -32,6 +32,9 @@ app.use("/api/menu", menuRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api", mainRoutes);
 
+// Health check for uptime monitoring/load balancers
+app.get("/health", (req, res) => res.status(200).send("ok"));
+
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Backend server is running on http://localhost:${PORT}`);

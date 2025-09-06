@@ -19,10 +19,12 @@ exports.login = async (req, res) => {
     if (user && (await bcrypt.compare(password, user.password))) {
       const token = generateToken(user.id, user.role, user.username);
 
+      const isProd = process.env.NODE_ENV === "production";
       res.cookie("authToken", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax", // Changed from 'strict' to 'lax' for development
+        secure: isProd,
+        // Use 'none' in production to allow cross-site cookies (frontend on different domain)
+        sameSite: isProd ? "none" : "lax",
         maxAge: 24 * 60 * 60 * 1000,
       });
 
@@ -39,8 +41,11 @@ exports.login = async (req, res) => {
 };
 
 exports.logout = (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
   res.cookie("authToken", "", {
     httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
     expires: new Date(0),
   });
   res.status(200).json({ message: "Logged out successfully" });

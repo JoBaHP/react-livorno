@@ -1,7 +1,7 @@
 {
   "name": "react-livorno",
   "version": "0.1.0",
-  "homepage": "http://pizzerialivorno.rs",
+  "homepage": ".",
   "private": true,
   "dependencies": {
     "@formspree/react": "^2.4.1",

@@ -2,7 +2,7 @@ import React, { createContext, useContext } from "react";
 import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL;
-const socket = io(API_URL);
+const socket = io(API_URL, { withCredentials: true });
 
 const ApiContext = createContext();
 

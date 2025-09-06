@@ -1,8 +1,0 @@
-@import "tailwindcss";
-
-/* Add a default background color and font smoothing for a modern look */
-body {
-  background-color: #f1f5f9; /* This is slate-100 in Tailwind */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}

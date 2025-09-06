@@ -27,7 +27,7 @@ export async function subscribeUser(api) {
 
     if (subscription === null) {
       console.log("No existing subscription found, creating a new one.");
-      const vapidPublicKey = process.env.REACT_APP_VAPID_PUBLIC_KEY;
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
       if (!vapidPublicKey) {
         console.error(

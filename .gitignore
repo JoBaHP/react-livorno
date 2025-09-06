@@ -9,6 +9,9 @@ node_modules
 /src/assets
 .env
 env
+**/.env
+.history/
+static-website/build.zip
 # testing
 /coverage
 /eslintrc.js

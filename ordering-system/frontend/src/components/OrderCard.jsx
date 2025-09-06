@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatCurrency } from '../utils/format';
 import {
   MessageSquare,
   CreditCard,
@@ -169,14 +170,14 @@ export default function OrderCard({ order, onUpdate }) {
                   {item.quantity} x {item.name} {item.size && `(${item.size})`}
                 </span>
                 <span>
-                  ${(item.quantity * parseFloat(item.price || 0)).toFixed(2)}
+                  {formatCurrency(item.quantity * parseFloat(item.price || 0))}
                 </span>
               </div>
               {selectedOptions && selectedOptions.length > 0 && (
                 <ul className="text-xs text-slate-500 pl-4 list-disc mt-1">
                   {selectedOptions.map((opt) => (
                     <li key={opt.id}>
-                      {opt.name} (+${parseFloat(opt.price).toFixed(2)})
+                      {opt.name} (+{formatCurrency(parseFloat(opt.price))})
                     </li>
                   ))}
                 </ul>
@@ -187,13 +188,13 @@ export default function OrderCard({ order, onUpdate }) {
         {isDelivery && deliveryFee > 0 && (
           <li className="flex justify-between pt-1 mt-1 border-t border-dashed">
             <span>Delivery Fee</span>
-            <span>${deliveryFee.toFixed(2)}</span>
+            <span>{formatCurrency(deliveryFee)}</span>
           </li>
         )}
       </ul>
 
       <div className="mt-2 pt-2 border-t font-bold flex justify-between items-center">
-        <span>Total: ${orderTotal.toFixed(2)}</span>
+        <span>Total: {formatCurrency(orderTotal)}</span>
         {paymentMethod && (
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
             {paymentMethod === "card" ? (

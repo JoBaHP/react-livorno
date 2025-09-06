@@ -4,9 +4,12 @@ import MenuItem from "../components/MenuItem";
 import CartView from "../components/CartView";
 import OrderStatusDisplay from "../components/OrderStatusDisplay";
 import { ChevronDown, Plus } from "lucide-react";
+import { useTranslation } from 'react-i18next';
+import { formatCurrency } from '../utils/format';
 import { playNotificationSound } from "../audio";
 
 export default function CustomerView({ tableId }) {
+  const { t, i18n } = useTranslation();
   const [menu, setMenu] = useState([]);
   const [cart, setCart] = useState([]);
   const [orderStatus, setOrderStatus] = useState(null);
@@ -101,13 +104,13 @@ export default function CustomerView({ tableId }) {
     return (
       <div className="text-center bg-white p-8 rounded-xl shadow-lg">
         <h2 className="text-3xl font-bold text-red-600 mb-4">
-          No Table Selected
+          {t('no_table_selected')}
         </h2>
         <p className="text-slate-600">
-          Please scan a QR code on your table to start ordering.
+          {t('scan_qr_prompt')}
         </p>
         <p className="text-slate-500 text-sm mt-4">
-          To simulate, add `?table=1` to the URL.
+          {t('simulate_table_hint')}
         </p>
       </div>
     );
@@ -202,6 +205,7 @@ export default function CustomerView({ tableId }) {
 }
 
 function CustomizationModal({ item, onAddToCart, onClose }) {
+  const { t, i18n } = useTranslation();
   const [selectedSize, setSelectedSize] = useState(item.sizes?.[0] || null);
   const [selectedOptions, setSelectedOptions] = useState([]);
 
@@ -237,7 +241,7 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
 
         {item.sizes && (
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-700 mb-2">Size</h3>
+            <h3 className="font-semibold text-slate-700 mb-2">{t('customization.size')}</h3>
             <div className="flex gap-2 flex-wrap">
               {item.sizes.map((size) => (
                 <button
@@ -249,7 +253,7 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
                       : "bg-white text-slate-700 border-slate-300 hover:border-amber-400"
                   }`}
                 >
-                  {size.name} - ${parseFloat(size.price).toFixed(2)}
+                  {size.name} - {formatCurrency(parseFloat(size.price), i18n.language)}
                 </button>
               ))}
             </div>
@@ -258,7 +262,7 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
 
         {paidOptions.length > 0 && (
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-700 mb-2">Extras</h3>
+            <h3 className="font-semibold text-slate-700 mb-2">{t('customization.extras')}</h3>
             <div className="grid grid-cols-2 gap-2">
               {paidOptions.map((opt) => (
                 <label
@@ -270,7 +274,7 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
                     onChange={() => handleOptionToggle(opt)}
                     className="h-4 w-4 rounded border-slate-300 text-amber-400 focus:ring-amber-400"
                   />
-                  {opt.name} (+${parseFloat(opt.price).toFixed(2)})
+                  {opt.name} (+{formatCurrency(parseFloat(opt.price), i18n.language)})
                 </label>
               ))}
             </div>
@@ -279,9 +283,7 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
 
         {freeOptions.length > 0 && (
           <div className="mb-4">
-            <h3 className="font-semibold text-slate-700 mb-2">
-              Add-ons (Free)
-            </h3>
+            <h3 className="font-semibold text-slate-700 mb-2">{t('customization.addons_free')}</h3>
             <div className="grid grid-cols-2 gap-2">
               {freeOptions.map((opt) => (
                 <label
@@ -301,22 +303,20 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
         )}
 
         <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-200">
-          <span className="text-2xl font-bold text-slate-900">
-            ${currentPrice.toFixed(2)}
-          </span>
+          <span className="text-2xl font-bold text-slate-900">{formatCurrency(currentPrice, i18n.language)}</span>
           <div className="flex gap-3">
             <button
               onClick={onClose}
               className="bg-slate-200 text-slate-800 px-4 py-2 rounded-lg font-semibold hover:bg-slate-300 transition-colors"
             >
-              Cancel
+              {t('customization.cancel')}
             </button>
             <button
               onClick={handleAddToCart}
               className="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 flex items-center gap-2"
             >
               <Plus size={18} />
-              Add to Order
+              {t('customization.add_to_order')}
             </button>
           </div>
         </div>

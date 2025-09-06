@@ -9,8 +9,11 @@ import {
 } from "lucide-react";
 import { playNotificationSound } from "../audio";
 import { useApi } from "../ApiProvider";
+import { useTranslation } from 'react-i18next';
+import { formatCurrency } from '../utils/format';
 
 export default function OrderStatusDisplay({ order, setOrderStatus }) {
+  const { t } = useTranslation();
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const prevStatusRef = useRef();
 
@@ -32,16 +35,16 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
       <div className="max-w-2xl mx-auto text-center bg-white p-8 rounded-2xl shadow-xl animate-fade-in">
         <div className="flex flex-col items-center gap-4 text-green-500">
           <CheckCircle size={64} className="animate-bounce" />
-          <h2 className="text-3xl font-bold text-slate-800">Thank You!</h2>
+          <h2 className="text-3xl font-bold text-slate-800">{t('thank_you')}</h2>
           <p className="text-lg text-slate-600">
-            Your feedback has been received.
+            {t('feedback_received')}
           </p>
         </div>
         <button
           onClick={() => setOrderStatus(null)}
           className="mt-8 bg-amber-400 text-white py-3 px-8 rounded-lg font-semibold hover:bg-amber-500 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
         >
-          Start New Order
+          {t('start_new_order')}
         </button>
       </div>
     );
@@ -55,20 +58,20 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
   const getStatusInfo = () => {
     switch (order.status) {
       case "pending":
-        return { text: "Waiting for Confirmation", icon: <Clock size={32} /> };
+        return { text: t('status.waiting'), icon: <Clock size={32} /> };
       case "accepted":
-        return { text: `Order Accepted!`, icon: <CheckCircle size={32} /> };
+        return { text: t('status.accepted'), icon: <CheckCircle size={32} /> };
       case "preparing":
-        return { text: "In the Kitchen!", icon: <ChefHat size={32} /> };
+        return { text: t('status.preparing'), icon: <ChefHat size={32} /> };
       case "ready":
         return {
-          text: "Your order is ready!",
+          text: t('status.ready'),
           icon: <UtensilsCrossed size={32} />,
         };
       case "declined":
-        return { text: "Order Declined", icon: <X size={32} /> };
+        return { text: t('status.declined'), icon: <X size={32} /> };
       default:
-        return { text: "Order status unknown", icon: <Clock size={32} /> };
+        return { text: t('status.unknown'), icon: <Clock size={32} /> };
     }
   };
   const { text, icon } = getStatusInfo();
@@ -76,10 +79,8 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
   return (
     <div className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-xl animate-fade-in">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-slate-800 mb-2">
-          Your Order is In!
-        </h2>
-        <p className="text-slate-600 mb-8">Order ID: #{order.id}</p>
+        <h2 className="text-3xl font-bold text-slate-800 mb-2">{t('order_in')}</h2>
+        <p className="text-slate-600 mb-8">{t('order_id', { id: order.id })}</p>
       </div>
 
       <div className="bg-slate-50 p-6 rounded-xl text-center mb-8">
@@ -88,9 +89,7 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
           <span>{text}</span>
         </div>
         {waitTimeDisplay && (
-          <p className="text-slate-600 mt-2">
-            Estimated wait: {waitTimeDisplay} minutes
-          </p>
+          <p className="text-slate-600 mt-2">{t('estimated_wait', { minutes: waitTimeDisplay })}</p>
         )}
       </div>
 
@@ -129,7 +128,7 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
       </div>
 
       <div>
-        <h4 className="font-bold text-lg mb-2 text-slate-700">Order Summary</h4>
+        <h4 className="font-bold text-lg mb-2 text-slate-700">{t('order_summary')}</h4>
         <ul className="text-left divide-y divide-slate-200">
           {order.items.map((item, index) => (
             <li
@@ -139,15 +138,13 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
               <span>
                 {item.quantity} x {item.name} {item.size && `(${item.size})`}
               </span>
-              <span>
-                ${(parseFloat(item.price || 0) * item.quantity).toFixed(2)}
-              </span>
+              <span>{formatCurrency(parseFloat(item.price || 0) * item.quantity)}</span>
             </li>
           ))}
         </ul>
         <div className="font-bold text-xl flex justify-between mt-4 pt-4 border-t text-slate-800">
-          <span>Total:</span>
-          <span>${orderTotal.toFixed(2)}</span>
+          <span>{t('total')}:</span>
+          <span>{formatCurrency(orderTotal)}</span>
         </div>
       </div>
       <div className="text-center">
@@ -155,7 +152,7 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
           onClick={() => setOrderStatus(null)}
           className="mt-8 bg-slate-200 text-slate-700 py-2 px-6 rounded-lg font-semibold hover:bg-slate-300 transition-colors"
         >
-          Back to Menu
+          {t('back_to_menu')}
         </button>
       </div>
     </div>

@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useTranslation } from 'react-i18next';
+import { formatCurrency } from '../utils/format';
 import {
   Plus,
   Minus,
@@ -16,6 +18,7 @@ export default function CartView({
   placeOrder,
   isLoading,
 }) {
+  const { t } = useTranslation();
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
 
@@ -27,10 +30,10 @@ export default function CartView({
     <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
       <div className="flex items-center gap-3 mb-4">
         <ShoppingCart className="text-amber-500" size={28} />
-        <h3 className="text-2xl font-bold text-slate-800">Your Order</h3>
+        <h3 className="text-2xl font-bold text-slate-800">{t('your_order')}</h3>
       </div>
       {cart.length === 0 ? (
-        <p className="text-slate-500 text-center py-8">Your cart is empty.</p>
+        <p className="text-slate-500 text-center py-8">{t('empty_cart')}</p>
       ) : (
         <>
           <div className="space-y-4 max-h-64 overflow-y-auto pr-2 -mr-2">
@@ -48,14 +51,12 @@ export default function CartView({
                       </span>
                     )}
                   </p>
-                  <p className="text-sm text-slate-600">
-                    ${parseFloat(item.price || 0).toFixed(2)}
-                  </p>
+                  <p className="text-sm text-slate-600">{formatCurrency(parseFloat(item.price || 0))}</p>
                   {item.selectedOptions?.length > 0 && (
                     <ul className="text-xs text-slate-500 pl-4 list-disc mt-1">
                       {item.selectedOptions.map((opt) => (
                         <li key={opt.id}>
-                          {opt.name} (+${parseFloat(opt.price).toFixed(2)})
+                          {opt.name} (+{formatCurrency(parseFloat(opt.price))})
                         </li>
                       ))}
                     </ul>
@@ -83,39 +84,37 @@ export default function CartView({
           </div>
           <div className="pt-4 border-t mt-4">
             <div className="flex justify-between items-center text-xl font-bold text-slate-800">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
+              <span>{t('total')}</span>
+              <span>{formatCurrency(total)}</span>
             </div>
           </div>
 
           <div className="mt-4 pt-4 border-t space-y-4">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1">
-                <StickyNote size={16} /> Order Notes
+                <StickyNote size={16} /> {t('order_notes')}
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g., no onions, allergy info"
+                placeholder={t('notes_placeholder')}
                 className="w-full p-2 border border-slate-300 rounded-lg h-20 text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
               ></textarea>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Payment Method
-              </label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('payment_method')}</label>
               <div className="flex gap-2">
                 <PaymentButton
                   selected={paymentMethod === "cash"}
                   onClick={() => setPaymentMethod("cash")}
                 >
-                  <DollarSign size={16} /> Cash
+                  <DollarSign size={16} /> {t('cash')}
                 </PaymentButton>
                 <PaymentButton
                   selected={paymentMethod === "card"}
                   onClick={() => setPaymentMethod("card")}
                 >
-                  <CreditCard size={16} /> Card
+                  <CreditCard size={16} /> {t('card')}
                 </PaymentButton>
               </div>
             </div>
@@ -127,7 +126,7 @@ export default function CartView({
             className="w-full mt-6 bg-green-500 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-600 transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-slate-400 disabled:shadow-inner shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             <Send size={20} />
-            {isLoading ? "Sending..." : "Place Order"}
+            {isLoading ? t('sending') : t('place_order')}
           </button>
         </>
       )}

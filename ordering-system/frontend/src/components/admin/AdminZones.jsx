@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useApi } from "../../ApiProvider";
 import { Plus, Edit, Trash2, MapPin } from "lucide-react";
 import ConfirmationModal from "../ConfirmationModal";
+import { formatCurrency } from '../../utils/format';
 
 export default function AdminZones() {
   const [zones, setZones] = useState([]);
@@ -75,9 +76,7 @@ export default function AdminZones() {
                   className="border-b last:border-b-0 hover:bg-gray-50"
                 >
                   <td className="p-3">{zone.name}</td>
-                  <td className="p-3">
-                    ${parseFloat(zone.delivery_fee).toFixed(2)}
-                  </td>
+                  <td className="p-3">{formatCurrency(parseFloat(zone.delivery_fee))}</td>
                   <td className="p-3">{zone.radius_meters}</td>
                   <td className="p-3 text-center space-x-2">
                     <button

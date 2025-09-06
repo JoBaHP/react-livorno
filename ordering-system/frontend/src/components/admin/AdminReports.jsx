@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { formatCurrency } from '../../utils/format';
 import { useApi } from "../../ApiProvider";
 import {
   BarChart,
@@ -28,9 +29,7 @@ const CustomTooltip = ({ active, payload, label, isMonthly = false }) => {
           {isMonthly ? `Day: ${new Date(label).getDate()}` : label}
         </p>
         {payload.map((p, i) => (
-          <p key={i} style={{ color: p.color }}>{`${p.name}: $${parseFloat(
-            p.value
-          ).toFixed(2)}`}</p>
+          <p key={i} style={{ color: p.color }}>{`${p.name}: ${formatCurrency(p.value)}`}</p>
         ))}
       </div>
     );
@@ -184,21 +183,19 @@ const DailyReportView = ({ date, setDate, onGenerate, isLoading, data }) => {
               <p className="text-lg font-semibold flex items-center gap-2">
                 <DollarSign size={20} /> Total Revenue
               </p>
-              <p className="text-4xl font-bold">${totalRevenue.toFixed(2)}</p>
+              <p className="text-4xl font-bold">{formatCurrency(totalRevenue)}</p>
             </div>
             <div className="bg-gradient-to-br from-sky-500 to-blue-600 p-6 rounded-lg shadow-lg">
               <p className="text-lg font-semibold flex items-center gap-2">
                 <Utensils size={20} /> Table Revenue
               </p>
-              <p className="text-4xl font-bold">${tableRevenue.toFixed(2)}</p>
+              <p className="text-4xl font-bold">{formatCurrency(tableRevenue)}</p>
             </div>
             <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-6 rounded-lg shadow-lg">
               <p className="text-lg font-semibold flex items-center gap-2">
                 <Truck size={20} /> Delivery Revenue
               </p>
-              <p className="text-4xl font-bold">
-                ${deliveryRevenue.toFixed(2)}
-              </p>
+              <p className="text-4xl font-bold">{formatCurrency(deliveryRevenue)}</p>
             </div>
           </div>
           <div>
@@ -241,9 +238,7 @@ const DailyReportView = ({ date, setDate, onGenerate, isLoading, data }) => {
                       <td className="p-3">{item.name}</td>
                       <td className="p-3">{item.size || "N/A"}</td>
                       <td className="p-3">{item.total_quantity}</td>
-                      <td className="p-3">
-                        ${parseFloat(item.total_revenue).toFixed(2)}
-                      </td>
+                      <td className="p-3">{formatCurrency(parseFloat(item.total_revenue))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -301,7 +296,7 @@ const MonthlyReportView = ({ date, setDate, onGenerate, isLoading, data }) => (
               dataKey="day"
               tickFormatter={(tick) => new Date(tick).getDate()}
             />
-            <YAxis tickFormatter={(tick) => `$${tick}`} />
+            <YAxis tickFormatter={(tick) => `${Math.round(tick)}din`} />
             <Tooltip content={<CustomTooltip isMonthly={true} />} />
             <Legend />
             <Bar

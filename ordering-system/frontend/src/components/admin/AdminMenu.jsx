@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useApi } from "../../ApiProvider";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import MenuItemForm from "./MenuItemForm";
+import { formatCurrency } from '../../utils/format';
 import ConfirmationModal from "../ConfirmationModal";
 
 export default function AdminMenu() {
@@ -78,11 +79,9 @@ export default function AdminMenu() {
                 <td className="p-3 text-sm">
                   {item.sizes
                     ? item.sizes
-                        .map(
-                          (s) => `${s.name}: $${parseFloat(s.price).toFixed(2)}`
-                        )
+                        .map((s) => `${s.name}: ${formatCurrency(parseFloat(s.price))}`)
                         .join(", ")
-                    : `$${parseFloat(item.price || 0).toFixed(2)}`}
+                    : formatCurrency(parseFloat(item.price || 0))}
                 </td>
                 <td className="p-3 text-center">
                   <span

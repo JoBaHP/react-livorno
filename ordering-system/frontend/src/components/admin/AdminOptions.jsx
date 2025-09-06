@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { formatCurrency } from '../../utils/format';
 import { useApi } from "../../ApiProvider";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import ConfirmationModal from "../ConfirmationModal";
@@ -111,7 +112,7 @@ function OptionsTable({ title, options, onEdit, onDelete }) {
                 className="border-b last:border-b-0 hover:bg-gray-50"
               >
                 <td className="p-3">{opt.name}</td>
-                <td className="p-3">${parseFloat(opt.price).toFixed(2)}</td>
+                <td className="p-3">{formatCurrency(parseFloat(opt.price))}</td>
                 <td className="p-3 text-center space-x-2">
                   <button
                     onClick={() => onEdit(opt)}

@@ -4,8 +4,10 @@ import { ApiProvider } from "./ApiProvider";
 import { AuthProvider } from "./AuthProvider";
 import CustomerView from "./views/CustomerView";
 import { UtensilsCrossed } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 
 export default function OrderingSystem() {
+  const { t } = useTranslation();
   const [tableId, setTableId] = useState(null);
   const location = useLocation();
 
@@ -27,9 +29,11 @@ export default function OrderingSystem() {
                 <div className="bg-amber-400 p-2 rounded-full">
                   <UtensilsCrossed className="text-white" size={24} />
                 </div>
-                <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                  Ristorante
-                </h1>
+                <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{t('app_title')}</h1>
+              </div>
+              <div className="flex items-center gap-2">
+                <LangButton code="en" label="EN" />
+                <LangButton code="sr" label="SR" />
               </div>
             </nav>
           </header>
@@ -39,5 +43,19 @@ export default function OrderingSystem() {
         </div>
       </AuthProvider>
     </ApiProvider>
+  );
+}
+
+function LangButton({ code, label }) {
+  const { i18n } = useTranslation();
+  const active = i18n.language?.startsWith(code);
+  return (
+    <button
+      onClick={() => i18n.changeLanguage(code)}
+      className={`px-2 py-1 rounded-md border ${active ? 'bg-amber-400 text-white border-amber-400' : 'border-slate-400 text-slate-700'}`}
+      aria-label={`Switch to ${label}`}
+    >
+      {label}
+    </button>
   );
 }

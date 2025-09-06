@@ -95,6 +95,8 @@ CREATE TABLE streets (
 
 -- 1. Enable the extension for text similarity and searching
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- Also ensure unaccent is available before using it below
+CREATE EXTENSION IF NOT EXISTS unaccent;
 
 -- 2. Add a new column to store the normalized street name
 ALTER TABLE streets

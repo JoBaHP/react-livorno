@@ -1,5 +1,5 @@
 
-CREATE TABLE delivery_zones (
+CREATE TABLE IF NOT EXISTS delivery_zones (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL, -- e.g., "Zone 1", "Extended Area"
     center_lat DOUBLE PRECISION NOT NULL, -- Latitude of the circle's center
@@ -8,8 +8,8 @@ CREATE TABLE delivery_zones (
     delivery_fee NUMERIC(10, 2) NOT NULL DEFAULT 0.00
 );
 
-ALTER TABLE orders
-ADD COLUMN order_type VARCHAR(50) DEFAULT 'table' NOT NULL,
-ADD COLUMN customer_name VARCHAR(255),
-ADD COLUMN customer_phone VARCHAR(50),
-ADD COLUMN customer_address TEXT;
+-- Make column additions idempotent and avoid errors if base schema isn't present yet
+ALTER TABLE IF EXISTS orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(50) DEFAULT 'table' NOT NULL;
+ALTER TABLE IF EXISTS orders ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255);
+ALTER TABLE IF EXISTS orders ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(50);
+ALTER TABLE IF EXISTS orders ADD COLUMN IF NOT EXISTS customer_address TEXT;

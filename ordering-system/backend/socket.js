@@ -3,7 +3,7 @@ let io;
 
 function initSocket(server) {
   const allowedOrigins = process.env.FRONTEND_URLS
-    ? process.env.FRONTEND_URLS.split(",")
+    ? process.env.FRONTEND_URLS.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
 
   io = new Server(server, {
@@ -13,6 +13,8 @@ function initSocket(server) {
       credentials: true,
     },
   });
+
+  console.log("Socket.IO CORS allowed origins:", allowedOrigins);
 
   io.on("connection", (socket) => {
     console.log("A user connected with socket ID:", socket.id);

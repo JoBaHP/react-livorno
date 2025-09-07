@@ -16,7 +16,7 @@ const server = http.createServer(app);
 initSocket(server);
 
 const allowedOrigins = process.env.FRONTEND_URLS
-  ? process.env.FRONTEND_URLS.split(",")
+  ? process.env.FRONTEND_URLS.split(",").map((s) => s.trim()).filter(Boolean)
   : [];
 
 const corsOptions = {
@@ -46,5 +46,6 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Backend server is running on http://localhost:${PORT}`);
+  console.log("CORS allowed origins:", allowedOrigins);
   testConnection();
 });

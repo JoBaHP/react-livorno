@@ -40,6 +40,9 @@ app.get('/', (req, res) => {
   res.type('text/plain').send('Livorno API is running');
 });
 
+// Silence browser favicon requests (avoid ORB/CSP warnings when viewing root)
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Backend server is running on http://localhost:${PORT}`);

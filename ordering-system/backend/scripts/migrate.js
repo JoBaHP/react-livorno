@@ -2,6 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../config/db');
 
+function stripComments(input) {
+  // Remove block comments /* ... */
+  let sql = input.replace(/\/\*[\s\S]*?\*\//g, '');
+  // Remove single-line comments starting with --
+  sql = sql.replace(/^\s*--.*$/gm, '');
+  return sql;
+}
+
 function splitSql(sql) {
   // Naive split on semicolons not inside strings; good enough for simple schema files
   const statements = [];
@@ -29,8 +37,10 @@ function splitSql(sql) {
 async function runFile(filePath) {
   const abs = path.resolve(__dirname, '..', 'config', filePath);
   console.log(`\nApplying schema: ${abs}`);
-  const sql = fs.readFileSync(abs, 'utf8');
+  const raw = fs.readFileSync(abs, 'utf8');
+  const sql = stripComments(raw);
   const statements = splitSql(sql);
+  console.log(`Found ${statements.length} SQL statements in ${filePath}`);
   let ok = 0;
   for (const stmt of statements) {
     try {
@@ -61,4 +71,3 @@ async function runFile(filePath) {
     try { await db.pool.end(); } catch (_) {}
   }
 })();
-

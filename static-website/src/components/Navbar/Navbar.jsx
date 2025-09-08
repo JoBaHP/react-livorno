@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
 import images from "../../constants/images";
@@ -12,7 +12,7 @@ const Navbar = () => {
   const [toggleMenu, setToggleMenu] = React.useState(false);
   return (
     <nav className="app__navbar">
-      <div className="app__navbar-logo">
+      <div className="app__navbar-logo" style={{ cursor: "pointer" }} onClick={() => navigate("/") }>
         <img src={images.logo} alt="app__logo" />
       </div>
       <div style={{ position: "absolute", right: 16, top: 12, display: "flex", gap: 8 }}>
@@ -47,10 +47,10 @@ const Navbar = () => {
       </div>
       <ul className="app__navbar-links">
         <li className="p__opensans">
-          <a href="#home">{t("home")}</a>
+          <Link to="/#home">{t("home")}</Link>
         </li>
         <li className="p__opensans">
-          <a href="#about">{t("about")}</a>
+          <Link to="/#about">{t("about")}</Link>
         </li>
         <li className="p__opensans">
           <button
@@ -66,10 +66,10 @@ const Navbar = () => {
           </button>
         </li>
         <li className="p__opensans">
-          <a href="#awards">{t("experience")}</a>
+          <Link to="/#awards">{t("experience")}</Link>
         </li>
         <li className="p__opensans">
-          <a href="#contact">{t("contact")}</a>
+          <Link to="/#contact">{t("contact")}</Link>
         </li>
       </ul>
       {/*       <div className="app__navbar-login">
@@ -97,36 +97,29 @@ const Navbar = () => {
             />
             <ul className="app__navbar-smallscreen_links">
               <li>
-                <a href="#home" onClick={() => setToggleMenu(false)}>
+                <Link to="/#home" onClick={() => setToggleMenu(false)}>
                   {t("home")}
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#about" onClick={() => setToggleMenu(false)}>
+                <Link to="/#about" onClick={() => setToggleMenu(false)}>
                   {t("about")}
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="/delivery"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate("/delivery");
-                    setToggleMenu(false);
-                  }}
-                >
+                <Link to="/delivery" onClick={() => setToggleMenu(false)}>
                   {t("menu")}
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#awards" onClick={() => setToggleMenu(false)}>
+                <Link to="/#awards" onClick={() => setToggleMenu(false)}>
                   {t("experience")}
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#contact" onClick={() => setToggleMenu(false)}>
+                <Link to="/#contact" onClick={() => setToggleMenu(false)}>
                   {t("contact")}
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

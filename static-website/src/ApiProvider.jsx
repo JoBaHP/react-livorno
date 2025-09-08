@@ -2,7 +2,13 @@ import React, { createContext, useContext } from "react";
 import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL;
-const socket = io(API_URL, { withCredentials: true });
+let socketInstance = null;
+const getSocket = () => {
+  if (!socketInstance) {
+    socketInstance = io(API_URL, { withCredentials: true });
+  }
+  return socketInstance;
+};
 
 const ApiContext = createContext();
 
@@ -39,8 +45,8 @@ export const ApiProvider = ({ children }) => {
     },
 
     socket: {
-      on: (eventName, callback) => socket.on(eventName, callback),
-      off: (eventName, callback) => socket.off(eventName, callback),
+      on: (eventName, callback) => getSocket().on(eventName, callback),
+      off: (eventName, callback) => getSocket().off(eventName, callback),
     },
   };
 

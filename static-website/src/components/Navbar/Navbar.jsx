@@ -47,7 +47,7 @@ const Navbar = () => {
       </div>
       <ul className="app__navbar-links">
         <li className="p__opensans">
-          <Link to="/#home">{t("home")}</Link>
+          <Link to="/">{t("home")}</Link>
         </li>
         <li className="p__opensans">
           <Link to="/#about">{t("about")}</Link>
@@ -97,7 +97,7 @@ const Navbar = () => {
             />
             <ul className="app__navbar-smallscreen_links">
               <li>
-                <Link to="/#home" onClick={() => setToggleMenu(false)}>
+                <Link to="/" onClick={() => setToggleMenu(false)}>
                   {t("home")}
                 </Link>
               </li>

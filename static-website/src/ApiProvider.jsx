@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useContext } from "react";
 import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL;
@@ -13,55 +13,10 @@ const getSocket = () => {
 const ApiContext = createContext();
 
 export const ApiProvider = ({ children }) => {
-  // --- Simple cache with localStorage persistence ---
-  const [menuCache, setMenuCache] = useState(() => {
-    try {
-      const raw = localStorage.getItem("menuCacheV1");
-      return raw ? JSON.parse(raw) : { data: null, ts: 0 };
-    } catch (_) {
-      return { data: null, ts: 0 };
-    }
-  });
-  const inflight = useRef(null);
-
-  const saveMenuCache = (data) => {
-    const next = { data, ts: Date.now() };
-    setMenuCache(next);
-    try { localStorage.setItem("menuCacheV1", JSON.stringify(next)); } catch (_) {}
-  };
-
-  const TTL_MS = 15 * 60 * 1000; // 15 minutes
-
-  // Prefetch ASAP on app load
-  useEffect(() => {
-    const fresh = menuCache?.data && Date.now() - (menuCache.ts || 0) < TTL_MS;
-    if (fresh) return;
-    // de-duplicate concurrent prefetch
-    if (!inflight.current) {
-      inflight.current = fetch(`${API_URL}/api/menu`)
-        .then((r) => r.json())
-        .then((data) => saveMenuCache(data))
-        .catch(() => {})
-        .finally(() => { inflight.current = null; });
-    }
-  }, []); // run once on mount
-
   const api = {
-    // Returns cached menu if fresh; otherwise fetches and updates cache
     getMenu: async () => {
-      const fresh = menuCache?.data && Date.now() - (menuCache.ts || 0) < TTL_MS;
-      if (fresh) return menuCache.data;
-      if (!inflight.current) {
-        inflight.current = fetch(`${API_URL}/api/menu`)
-          .then((r) => r.json())
-          .then((data) => { saveMenuCache(data); return data; })
-          .finally(() => { inflight.current = null; });
-      }
-      try { return await inflight.current; } catch { return menuCache.data || []; }
-    },
-    invalidateMenuCache: () => {
-      setMenuCache({ data: null, ts: 0 });
-      try { localStorage.removeItem("menuCacheV1"); } catch (_) {}
+      const response = await fetch(`${API_URL}/api/menu`);
+      return response.json();
     },
 
     getAllStreets: async (fetchAll = false) => {

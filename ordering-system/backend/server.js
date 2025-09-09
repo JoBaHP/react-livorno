@@ -1,6 +1,7 @@
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
+const compression = require("compression");
 const cookieParser = require("cookie-parser");
 require("dotenv").config();
 
@@ -25,9 +26,17 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(compression());
 app.use(express.json());
 app.use(cookieParser());
 
+// Set short-term caching headers for public GETs to /api/menu
+app.use("/api/menu", (req, res, next) => {
+  if (req.method === "GET") {
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=60");
+  }
+  next();
+});
 app.use("/api/menu", menuRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api", mainRoutes);

@@ -1,7 +1,6 @@
 import React from "react";
 import { BsFillPlayFill, BsPauseFill } from "react-icons/bs";
 
-//import { meal } from '../../constants';
 import "./Intro.css";
 
 const Intro = () => {
@@ -10,14 +9,19 @@ const Intro = () => {
 
   return (
     <div className="app__video">
-      {/*       <video
+      <video
         ref={vidRef}
-        src={meal}
+        src="/media/pizza.mp4"
         type="video/mp4"
         loop
+        playsInline
         controls={false}
         muted
-      /> */}
+        preload="metadata"
+        onLoadedMetadata={() => {
+          try { vidRef.current.currentTime = 0.1; } catch (_) {}
+        }}
+      />
       <div className="app__video-overlay flex__center">
         <div
           className="app__video-overlay_circle flex__center"

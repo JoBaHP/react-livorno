@@ -30,6 +30,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
+    "shrink:video": "bash ../scripts/shrink-video.sh ../static-website/public/media/pizza.mp4 --amend",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
   },

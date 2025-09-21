@@ -25,6 +25,9 @@ router.get(
 router.post("/login", authController.login);
 router.post("/logout", authController.logout); // This route was missing
 router.get("/profile", protect, authController.getProfile); // This route checks login status
+router.get("/auth/google", authController.startGoogleAuth);
+router.get("/auth/google/callback", authController.handleGoogleCallback);
+router.post("/auth/refresh", authController.refreshAccessToken);
 
 // --- User Management Routes (Admin Only) ---
 router.get("/users", protect, admin, userController.getAllUsers);
@@ -45,6 +48,7 @@ router.post(
   notificationController.saveSubscription
 );
 router.post("/delivery-order", orderController.placeDeliveryOrder);
+router.get("/user/orders", protect, orderController.getOrdersForUser);
 
 router.get("/options", protect, admin, optionsController.getAllOptions);
 router.post("/options", protect, admin, optionsController.createOption);

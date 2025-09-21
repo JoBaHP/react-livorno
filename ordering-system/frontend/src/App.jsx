@@ -10,12 +10,15 @@ import AdminView from "./views/AdminView";
 import ProtectedRoute from "./ProtectedRoute";
 import { ApiProvider } from "./ApiProvider";
 import { AuthProvider } from "./AuthProvider";
+import { Provider } from 'react-redux';
+import { store } from './store';
 
 function App() {
   return (
     <ApiProvider>
-      <AuthProvider>
-        <Routes>
+      <Provider store={store}>
+        <AuthProvider>
+          <Routes>
           {/* Customer Route */}
           <Route path="/order" element={<OrderingSystem />} />
 
@@ -49,7 +52,8 @@ function App() {
           {/* Default route can redirect to the ordering page or a homepage */}
           <Route path="*" element={<OrderingSystem />} />
         </Routes>
-      </AuthProvider>
+        </AuthProvider>
+      </Provider>
     </ApiProvider>
   );
 }

@@ -13,8 +13,16 @@ const ApiContext = createContext();
 
 export const ApiProvider = ({ children }) => {
   const api = {
-    getMenu: async () => {
-      const response = await fetch(`${API_URL}/api/menu`, fetchOptions);
+    getMenu: async (params = {}) => {
+      const query = new URLSearchParams(
+        Object.entries(params).reduce((acc, [key, value]) => {
+          if (value === undefined || value === null) return acc;
+          acc[key] = value;
+          return acc;
+        }, {})
+      ).toString();
+      const url = query ? `${API_URL}/api/menu?${query}` : `${API_URL}/api/menu`;
+      const response = await fetch(url, fetchOptions);
       return response.json();
     },
     addMenuItem: async (item) => {
@@ -41,6 +49,16 @@ export const ApiProvider = ({ children }) => {
         method: "DELETE",
       });
       return { success: true };
+    },
+    refreshSession: async () => {
+      const response = await fetch(`${API_URL}/api/auth/refresh`, {
+        ...fetchOptions,
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error('Unable to refresh session');
+      }
+      return response.json();
     },
     getTables: async () => {
       const response = await fetch(`${API_URL}/api/tables`, fetchOptions);

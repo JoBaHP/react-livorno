@@ -1,16 +1,16 @@
 const jwt = require("jsonwebtoken");
 
 const protect = (req, res, next) => {
-  // --- DEBUGGING ---
-  // This will show us exactly what cookies the server is receiving.
-  console.log("Cookies received by backend:", req.cookies);
-
   const token = req.cookies.authToken;
 
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decoded;
+      if (decoded.tokenType !== "access") {
+        throw new Error("Invalid token type");
+      }
+      const { tokenType, iat, exp, ...user } = decoded;
+      req.user = user;
       next();
     } catch (error) {
       console.error("TOKEN VERIFICATION FAILED:", error.message);

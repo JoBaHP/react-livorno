@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useApi } from "../../ApiProvider";
 import MenuItem from "../MenuItem";
 import { ChevronDown, ShoppingCart, Plus, Minus } from "lucide-react";
 import { formatCurrency } from "../../utils/format";
+import { useQuery } from '@tanstack/react-query';
 
 export default function DeliveryMenu({
   cart = [],
@@ -13,29 +14,62 @@ export default function DeliveryMenu({
   updateCartForItem,
 }) {
   const { t } = useTranslation();
-  const [menu, setMenu] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: menu = [], isLoading } = useQuery({ queryKey: ['menu'], queryFn: () => api.getMenu() });
   const [openCategory, setOpenCategory] = useState(null);
   const [customizingItem, setCustomizingItem] = useState(null);
   const api = useApi();
 
-  const categoryOrder = ["Pizzas", "Pasta", "Salads", "Desserts", "Drinks"];
-  const categories = [...new Set(menu.map((item) => item.category))].sort(
-    (a, b) => {
-      const indexA = categoryOrder.indexOf(a);
-      const indexB = categoryOrder.indexOf(b);
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    }
-  );
-
-  useEffect(() => {
-    api.getMenu().then((data) => {
-      setMenu(data);
-      setIsLoading(false);
+  // Derive categories without hard-coding order.
+  // Priority:
+  // 1) If REACT_APP_CATEGORY_ORDER is set (comma-separated), use that.
+  // 2) If items provide numeric `category_order`, sort by that.
+  // 3) Otherwise, keep first-appearance order from the menu data.
+  const categories = useMemo(() => {
+    const firstSeenIndex = new Map();
+    const numericOrder = new Map();
+    const list = [];
+    menu.forEach((item, idx) => {
+      if (!firstSeenIndex.has(item.category)) {
+        firstSeenIndex.set(item.category, idx);
+        list.push(item.category);
+      }
+      const ord = item?.category_order;
+      if (typeof ord === 'number') {
+        numericOrder.set(
+          item.category,
+          Math.min(numericOrder.get(item.category) ?? ord, ord)
+        );
+      }
     });
-  }, [api]);
+
+    const env = (process.env.REACT_APP_CATEGORY_ORDER || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (env.length) {
+      list.sort((a, b) => {
+        const ia = env.indexOf(a);
+        const ib = env.indexOf(b);
+        const da = ia === -1 ? Number.MAX_SAFE_INTEGER : ia;
+        const db = ib === -1 ? Number.MAX_SAFE_INTEGER : ib;
+        if (da !== db) return da - db;
+        return (firstSeenIndex.get(a) ?? 0) - (firstSeenIndex.get(b) ?? 0);
+      });
+      return list;
+    }
+
+    if (numericOrder.size) {
+      list.sort((a, b) => {
+        const oa = numericOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
+        const ob = numericOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
+        if (oa !== ob) return oa - ob;
+        return (firstSeenIndex.get(a) ?? 0) - (firstSeenIndex.get(b) ?? 0);
+      });
+    }
+    return list;
+  }, [menu]);
+
+  // Menu is loaded via React Query
 
   const handleCategoryToggle = (category) => {
     setOpenCategory((prevOpenCategory) =>

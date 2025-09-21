@@ -2,6 +2,7 @@ import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 import { UtensilsCrossed, LogOut } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 
 export default function StaffLayout({ children }) {
   return (
@@ -15,6 +16,7 @@ export default function StaffLayout({ children }) {
 function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleLogout = async () => {
     await logout();
@@ -43,16 +45,14 @@ function Header() {
           <div className="bg-white p-2 rounded-full">
             <UtensilsCrossed className="text-indigo-600" size={24} />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            - Staff Panel -
-          </h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">- {t('staff_panel_title')} -</h1>
         </div>
         {user && (
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2 bg-slate-700 p-1 rounded-lg">
-              <NavButton to="/staff/waiter">Waiter Desk</NavButton>
+              <NavButton to="/staff/waiter">{t('waiter_desk')}</NavButton>
               {user.role === "admin" && (
-                <NavButton to="/staff/admin">Admin Panel</NavButton>
+                <NavButton to="/staff/admin">{t('admin_panel')}</NavButton>
               )}
             </div>
             <div className="flex items-center gap-3">

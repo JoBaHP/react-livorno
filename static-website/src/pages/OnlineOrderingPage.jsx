@@ -1,33 +1,45 @@
 import React, { useState, useEffect } from "react";
+// import { useLocation } from 'react-router-dom';
 import { useApi } from "../ApiProvider";
 import DeliveryMenu from "../components/delivery/DeliveryMenu";
 import DeliveryCheckout from "../components/delivery/DeliveryCheckout";
 import DeliveryStatus from "../components/delivery/DeliveryStatus";
 import { Navbar } from "../components";
 import { Footer } from "../container";
-
-const getInitialCart = () => {
-  try {
-    const storedCart = sessionStorage.getItem("deliveryCart");
-    return storedCart ? JSON.parse(storedCart) : [];
-  } catch (error) {
-    return [];
-  }
-};
+import { useDispatch, useSelector } from 'react-redux';
+import { addItem, updateQuantity as updateQuantityAction, updateOptionQuantity as updateOptionQuantityAction, replaceItemsForProduct, clear } from '../store/cartSlice';
+import { setOrder, updateOrder as updateOrderAction } from '../store/orderSlice';
+import { selectCartItems, selectCurrentOrder } from '../store';
 
 export default function OnlineOrderingPage() {
-  const [cart, setCart] = useState(getInitialCart);
-  const [order, setOrder] = useState(null);
-  const [view, setView] = useState("menu");
+  // const location = useLocation();
+  const dispatch = useDispatch();
+  const cart = useSelector(selectCartItems);
+  const order = useSelector(selectCurrentOrder);
+  const authUser = useSelector((state) => state.auth.user);
+  const [view, setView] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('view');
+    return v === 'checkout' ? 'checkout' : 'menu';
+  });
   const api = useApi();
+  const [banner, setBanner] = useState(null);
 
   useEffect(() => {
     try {
-      sessionStorage.setItem("deliveryCart", JSON.stringify(cart));
-    } catch (error) {
-      console.error("Could not save cart to sessionStorage:", error);
-    }
-  }, [cart]);
+      const raw = sessionStorage.getItem('reorderMsg');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      sessionStorage.removeItem('reorderMsg');
+      if (data && data.ok) {
+        if ((data.warnings || []).length) {
+          setBanner({ type: 'warn', text: data.warnings.join(' ') });
+        } else {
+          setBanner({ type: 'ok', text: 'Cart updated from previous order.' });
+        }
+      }
+    } catch {}
+  }, []);
 
   // --- NEW: This effect listens for real-time status updates ---
   useEffect(() => {
@@ -35,7 +47,7 @@ export default function OnlineOrderingPage() {
 
     const onStatusUpdate = (updatedOrder) => {
       if (updatedOrder.id === order.id) {
-        setOrder(updatedOrder); // Update the local order state
+        dispatch(updateOrderAction(updatedOrder));
       }
     };
 
@@ -44,111 +56,125 @@ export default function OnlineOrderingPage() {
     return () => {
       api.socket.off("order_status_update", onStatusUpdate);
     };
-  }, [order, api.socket]);
+  }, [order, api.socket, dispatch]);
 
   const addToCart = (item, size, selectedOptions) => {
-    const optionsId = selectedOptions
-      .map((o) => o.id)
-      .sort()
-      .join("-");
-    const cartId = `${item.id}-${size?.name || "std"}-${optionsId}`;
-    const existingItem = cart.find((ci) => ci.cartId === cartId);
-    if (existingItem) {
-      setCart(
-        cart.map((ci) =>
-          ci.cartId === cartId ? { ...ci, quantity: ci.quantity + 1 } : ci
-        )
-      );
-    } else {
-      const newItem = {
-        ...item,
-        cartId,
-        quantity: 1,
-        price: size ? size.price : item.price,
-        size: size ? size.name : null,
-        selectedOptions,
-      };
-      setCart([...cart, newItem]);
-    }
+    dispatch(addItem({ item, size, selectedOptions }));
   };
 
   const updateQuantity = (cartId, amount) => {
-    const updatedCart = cart.map((item) =>
-      item.cartId === cartId
-        ? { ...item, quantity: Math.max(0, item.quantity + amount) }
-        : item
-    );
-    setCart(updatedCart.filter((item) => item.quantity > 0));
+    dispatch(updateQuantityAction({ cartId, amount }));
   };
 
   const updateOptionQuantity = (cartId, optionId, delta) => {
-    setCart((prev) =>
-      prev.map((item) => {
-        if (item.cartId !== cartId) return item;
-        const updatedOptions = (item.selectedOptions || [])
-          .map((opt) => {
-            if (opt.id !== optionId) return opt;
-            const isPaid = parseFloat(opt.price || 0) > 0;
-            if (!isPaid) return opt;
-            const newQty = Math.max(0, (opt.quantity || 0) + delta);
-            return { ...opt, quantity: newQty };
-          })
-          .filter((opt) => !(parseFloat(opt.price || 0) > 0 && (opt.quantity || 0) === 0));
-        return { ...item, selectedOptions: updatedOptions };
-      })
-    );
+    dispatch(updateOptionQuantityAction({ cartId, optionId, delta }));
   };
 
   const updateCartForItem = (item, selectedQuantities, optionsWithQuantities) => {
-    setCart((prev) => {
-      const rest = prev.filter((ci) => ci.id !== item.id);
-      const newItems = [];
+    const filteredOptions = (optionsWithQuantities || []).filter((o) =>
+      parseFloat(o.price || 0) > 0 ? (o.quantity || 0) > 0 : true
+    );
 
-      const preparedOptions = (optionsWithQuantities || []).filter(
-        (o) => (parseFloat(o.price || 0) > 0 ? (o.quantity || 0) > 0 : true)
-      );
+    const freeOptions = filteredOptions
+      .filter((opt) => parseFloat(opt.price || 0) <= 0)
+      .map((opt) => ({ ...opt, quantity: opt.quantity || 1 }));
 
-      if (item.sizes?.length) {
-        item.sizes.forEach((size) => {
-          const qty = selectedQuantities[size.name] || 0;
-          if (qty > 0) {
-            const optionsId = preparedOptions
-              .map((o) => `${o.id}:${o.quantity || 1}`)
-              .sort()
-              .join("-");
-            const cartId = `${item.id}-${size.name}-${optionsId}`;
-            newItems.push({
-              ...item,
-              cartId,
-              quantity: qty,
-              price: size.price,
-              size: size.name,
-              selectedOptions: preparedOptions,
-            });
-          }
-        });
-      } else {
-        const qty = selectedQuantities.std || 0;
-        if (qty > 0) {
-          const optionsId = preparedOptions
-            .map((o) => `${o.id}:${o.quantity || 1}`)
-            .sort()
-            .join("-");
-          const cartId = `${item.id}-std-${optionsId}`;
-          newItems.push({
-            ...item,
-            cartId,
-            quantity: qty,
-            price: item.price,
-            size: null,
-            selectedOptions: preparedOptions,
-          });
+    const paidOptions = filteredOptions.filter(
+      (opt) => parseFloat(opt.price || 0) > 0
+    );
+
+    const units = [];
+    if (item.sizes?.length) {
+      item.sizes.forEach((size) => {
+        const qty = selectedQuantities[size.name] || 0;
+        for (let i = 0; i < qty; i += 1) {
+          units.push({ size: size.name, price: size.price });
         }
+      });
+    } else {
+      const qty = selectedQuantities.std || 0;
+      for (let i = 0; i < qty; i += 1) {
+        units.push({ size: null, price: item.price });
+      }
+    }
+
+    const unitOptions = units.map(() =>
+      freeOptions.map((opt) => ({ ...opt }))
+    );
+
+    paidOptions.forEach((opt) => {
+      let remaining = Math.max(0, opt.quantity || 0);
+      if (units.length === 0 || remaining === 0) return;
+
+      let idx = 0;
+      while (remaining > 0 && idx < unitOptions.length) {
+        const target = unitOptions[idx];
+        const existing = target.find((o) => o.id === opt.id);
+        if (existing) {
+          existing.quantity = (existing.quantity || 0) + 1;
+        } else {
+          target.push({ ...opt, quantity: 1 });
+        }
+        remaining -= 1;
+        idx += 1;
       }
 
-      return [...rest, ...newItems];
+      if (remaining > 0) {
+        const target = unitOptions[unitOptions.length - 1];
+        const existing = target.find((o) => o.id === opt.id);
+        if (existing) {
+          existing.quantity = (existing.quantity || 0) + remaining;
+        } else {
+          target.push({ ...opt, quantity: remaining });
+        }
+      }
     });
+
+    const grouped = new Map();
+
+    units.forEach((unit, index) => {
+      const options = (unitOptions[index] || [])
+        .filter((opt) => {
+          const price = parseFloat(opt.price || 0);
+          return price > 0 ? (opt.quantity || 0) > 0 : true;
+        })
+        .map((opt) => ({ ...opt }));
+
+      const optionsKey = options
+        .map((opt) => {
+          const price = parseFloat(opt.price || 0);
+          if (price > 0) {
+            return `${opt.id}:${opt.quantity || 1}`;
+          }
+          return `${opt.id}`;
+        })
+        .sort()
+        .join('-');
+
+      const cartId = `${item.id}-${unit.size || 'std'}-${optionsKey}`;
+      if (!grouped.has(cartId)) {
+        grouped.set(cartId, {
+          ...item,
+          cartId,
+          quantity: 0,
+          price: unit.price,
+          size: unit.size,
+          selectedOptions: options,
+        });
+      }
+      const entry = grouped.get(cartId);
+      entry.quantity += 1;
+    });
+
+    const newItems = Array.from(grouped.values());
+    dispatch(replaceItemsForProduct({ productId: item.id, items: newItems }));
   };
+
+  useEffect(() => {
+    if (!order && view === 'status') {
+      setView('menu');
+    }
+  }, [order, view]);
 
   const placeDeliveryOrder = async (customerDetails) => {
     let fullAddress = `${customerDetails.street} ${customerDetails.number}`;
@@ -163,12 +189,15 @@ export default function OnlineOrderingPage() {
       customerAddress: fullAddress,
       paymentMethod: "cash",
       notes: customerDetails.notes,
+      customerEmail: authUser?.email || null,
+      customerExternalId: authUser?.id || null,
+      customerAvatar: authUser?.picture || null,
     };
     const newOrder = await api.placeDeliveryOrder(orderData);
     if (newOrder.id) {
-      setOrder(newOrder);
+      dispatch(setOrder(newOrder));
       setView("status");
-      setCart([]);
+      dispatch(clear());
     } else {
       throw new Error(newOrder.message || "An unknown error occurred.");
     }
@@ -205,7 +234,17 @@ export default function OnlineOrderingPage() {
   return (
     <div className="bg-black min-h-screen">
       <Navbar />
-      <main className="py-8 px-4">{renderView()}</main>
+      <main className="py-8 px-4">
+        {banner && (
+          <div className="mb-4 p-3 rounded-md" style={{
+            background: banner.type === 'warn' ? '#3b2f00' : '#0a2f0a',
+            border: '1px solid var(--color-golden)'
+          }}>
+            <p className="p__opensans" style={{ color: '#fff' }}>{banner.text}</p>
+          </div>
+        )}
+        {renderView()}
+      </main>
       <Footer />
     </div>
   );

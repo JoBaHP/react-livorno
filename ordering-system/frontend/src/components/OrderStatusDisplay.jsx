@@ -164,11 +164,12 @@ function FeedbackForm({ order, setFeedbackSubmitted }) {
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState("");
   const api = useApi();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (rating === 0) {
-      alert("Please select a rating.");
+      alert(t('feedback_select_rating'));
       return;
     }
     await api.submitFeedback(order.id, rating, comment);
@@ -177,10 +178,8 @@ function FeedbackForm({ order, setFeedbackSubmitted }) {
 
   return (
     <div className="max-w-2xl mx-auto text-center bg-white p-8 rounded-2xl shadow-xl animate-fade-in">
-      <h2 className="text-3xl font-bold text-slate-800 mb-2">
-        How was everything?
-      </h2>
-      <p className="text-slate-600 mb-6">Your feedback helps us improve.</p>
+      <h2 className="text-3xl font-bold text-slate-800 mb-2">{t('feedback_title')}</h2>
+      <p className="text-slate-600 mb-6">{t('feedback_help')}</p>
       <form onSubmit={handleSubmit}>
         <div className="flex justify-center my-4">
           {[...Array(5)].map((_, index) => {
@@ -209,14 +208,14 @@ function FeedbackForm({ order, setFeedbackSubmitted }) {
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Tell us more (optional)"
+          placeholder={t('feedback_placeholder')}
           className="w-full p-3 border border-slate-300 rounded-lg h-24 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
         ></textarea>
         <button
           type="submit"
           className="mt-4 bg-green-500 text-white py-3 px-6 rounded-lg font-bold text-lg hover:bg-green-600 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
         >
-          Submit Feedback
+          {t('feedback_submit')}
         </button>
       </form>
     </div>

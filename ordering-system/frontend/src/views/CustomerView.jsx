@@ -7,16 +7,27 @@ import { ChevronDown, Plus } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../utils/format';
 import { playNotificationSound } from "../audio";
+import { useQuery } from '@tanstack/react-query';
+import { useDispatch, useSelector } from 'react-redux';
+import { addItem as addCartItem, updateQuantity as updateCartQty, clear as clearCart } from '../store/cartSlice';
+import { selectCartItems, selectCartTotal, selectCurrentOrder } from '../store';
+import { setOrder, clearOrder, updateOrder as updateOrderAction } from '../store/orderSlice';
 
 export default function CustomerView({ tableId }) {
   const { t, i18n } = useTranslation();
-  const [menu, setMenu] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [orderStatus, setOrderStatus] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const dispatch = useDispatch();
+  const cart = useSelector(selectCartItems);
+  const orderStatus = useSelector(selectCurrentOrder);
   const [openCategory, setOpenCategory] = useState(null);
   const [customizingItem, setCustomizingItem] = useState(null);
   const api = useApi();
+
+  const { data: menu = [], isLoading: isMenuLoading } = useQuery({
+    queryKey: ['menu'],
+    queryFn: () => api.getMenu(),
+  });
+  const [isPlacing, setIsPlacing] = useState(false);
+  const total = useSelector(selectCartTotal);
 
   const categoryOrder = ["Pizzas", "Pasta", "Salads", "Desserts", "Drinks"];
   const categories = [...new Set(menu.map((item) => item.category))].sort(
@@ -29,69 +40,33 @@ export default function CustomerView({ tableId }) {
     }
   );
 
-  useEffect(() => {
-    api.getMenu().then((data) => {
-      setMenu(data);
-      setIsLoading(false);
-    });
-  }, [api]);
+  // Menu is now loaded via React Query
 
   useEffect(() => {
     if (!orderStatus?.id) return;
     const onStatusUpdate = (updatedOrder) => {
-      if (updatedOrder.id === orderStatus.id) setOrderStatus(updatedOrder);
+      if (updatedOrder.id === orderStatus.id) {
+        dispatch(updateOrderAction(updatedOrder));
+      }
     };
     api.socket.on("order_status_update", onStatusUpdate);
     return () => api.socket.off("order_status_update", onStatusUpdate);
-  }, [orderStatus, api.socket]);
+  }, [orderStatus, api.socket, dispatch]);
 
-  const addToCart = (item, size, selectedOptions) => {
+  const handleAddToCart = (item, size, selectedOptions) => {
     if (!item.available) return;
-
-    const optionsId = selectedOptions
-      .map((o) => o.id)
-      .sort()
-      .join("-");
-    const cartId = `${item.id}-${size?.name || "std"}-${optionsId}`;
-
-    const existingItem = cart.find((ci) => ci.cartId === cartId);
-    if (existingItem) {
-      setCart(
-        cart.map((ci) =>
-          ci.cartId === cartId ? { ...ci, quantity: ci.quantity + 1 } : ci
-        )
-      );
-    } else {
-      const newItem = {
-        ...item,
-        cartId,
-        quantity: 1,
-        price: size ? size.price : item.price,
-        size: size ? size.name : null,
-        selectedOptions,
-      };
-      setCart([...cart, newItem]);
-    }
+    dispatch(addCartItem({ item, size, selectedOptions }));
     setCustomizingItem(null);
-  };
-
-  const updateQuantity = (cartId, amount) => {
-    const updatedCart = cart.map((item) =>
-      item.cartId === cartId
-        ? { ...item, quantity: Math.max(0, item.quantity + amount) }
-        : item
-    );
-    setCart(updatedCart.filter((item) => item.quantity > 0));
   };
 
   const placeOrder = async (notes, paymentMethod) => {
     if (cart.length === 0 || !tableId) return;
     playNotificationSound();
-    setIsLoading(true);
+    setIsPlacing(true);
     const newOrder = await api.placeOrder(cart, tableId, notes, paymentMethod);
-    setOrderStatus(newOrder);
-    setCart([]);
-    setIsLoading(false);
+    dispatch(setOrder(newOrder));
+    dispatch(clearCart());
+    setIsPlacing(false);
   };
 
   const handleCategoryToggle = (category) => {
@@ -116,31 +91,21 @@ export default function CustomerView({ tableId }) {
     );
   if (orderStatus)
     return (
-      <OrderStatusDisplay order={orderStatus} setOrderStatus={setOrderStatus} />
+      <OrderStatusDisplay order={orderStatus} setOrderStatus={() => dispatch(clearOrder())} />
     );
 
-  let total = 0;
-  cart.forEach((item) => {
-    let itemTotal = parseFloat(item.price || 0);
-    if (item.selectedOptions) {
-      item.selectedOptions.forEach((opt) => {
-        itemTotal += parseFloat(opt.price || 0);
-      });
-    }
-    total += itemTotal * item.quantity;
-  });
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
       <div className="lg:col-span-2 space-y-6">
         <div className="text-center lg:text-left">
-          <h2 className="text-4xl font-extrabold text-slate-800">Our Menu</h2>
+          <h2 className="text-4xl font-extrabold text-slate-800">{t('menu_title')}</h2>
           <p className="mt-2 text-lg text-slate-600">
-            Enjoy your meal at Table {tableId}
+            {t('menu_table_text', { tableId })}
           </p>
         </div>
-        {isLoading ? (
-          <p>Loading menu...</p>
+        {isMenuLoading ? (
+          <p>{t('loading_menu')}</p>
         ) : (
           <div className="space-y-3">
             {categories.map((category) => (
@@ -171,7 +136,7 @@ export default function CustomerView({ tableId }) {
                             key={item.id}
                             item={item}
                             onCustomize={() => setCustomizingItem(item)}
-                            onAddToCart={addToCart}
+                            onAddToCart={handleAddToCart}
                           />
                         ))}
                     </div>
@@ -182,21 +147,21 @@ export default function CustomerView({ tableId }) {
           </div>
         )}
       </div>
-      <div className="lg:col-span-1">
+      <div className="lg:col-span-1" id="cart-panel">
         <div className="sticky top-24">
           <CartView
             cart={cart}
-            updateQuantity={updateQuantity}
+            updateQuantity={(cartId, amount) => dispatch(updateCartQty({ cartId, amount }))}
             total={total}
             placeOrder={placeOrder}
-            isLoading={isLoading}
+            isLoading={isPlacing}
           />
         </div>
       </div>
       {customizingItem && (
         <CustomizationModal
           item={customizingItem}
-          onAddToCart={addToCart}
+          onAddToCart={handleAddToCart}
           onClose={() => setCustomizingItem(null)}
         />
       )}

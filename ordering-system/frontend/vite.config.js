@@ -16,4 +16,17 @@ export default defineConfig({
       strategies: "injectManifest",
     }),
   ],
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+          charts: ['recharts'],
+          redux: ['@reduxjs/toolkit', 'react-redux'],
+        },
+      },
+    },
+  },
 });

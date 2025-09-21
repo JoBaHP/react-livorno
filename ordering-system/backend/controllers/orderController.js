@@ -1,18 +1,66 @@
 const db = require("../config/db");
 const { getIO } = require("../socket");
+const jwt = require("jsonwebtoken");
+
+const normaliseOptions = (options = []) =>
+  options.map((opt) => {
+    const price = parseFloat(opt.price || 0);
+    const rawQty = Number(opt.quantity);
+    const quantity = Number.isFinite(rawQty)
+      ? rawQty
+      : price > 0
+      ? 1
+      : 0;
+    return {
+      ...opt,
+      price,
+      quantity,
+    };
+  });
+
+const calculateLineTotals = (item) => {
+  const quantity = Number(item.quantity) || 0;
+  const basePrice = parseFloat(item.price || 0);
+  const options = normaliseOptions(
+    item.selectedOptions || item.selected_options || item.options || []
+  );
+  const paidOptionsPerUnit = options.reduce((sum, opt) => {
+    if (opt.price <= 0 || opt.quantity <= 0) return sum;
+    return sum + opt.price * opt.quantity;
+  }, 0);
+  const lineTotal = (basePrice + paidOptionsPerUnit) * quantity;
+  return { basePrice, paidOptionsPerUnit, lineTotal, options, quantity };
+};
+
+const getSessionUser = (req) => {
+  const token = req.cookies?.authToken;
+  if (!token) return null;
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return null;
+  }
+};
 
 // --- placeOrder: Handles creating a new TABLE order ---
 exports.placeOrder = async (req, res) => {
   const { cart, tableId, notes, paymentMethod } = req.body;
   let total = 0;
   cart.forEach((item) => {
-    let itemTotal = parseFloat(item.price || 0);
+    const basePrice = parseFloat(item.price || 0);
+    let optionsPerUnit = 0;
     if (item.selectedOptions) {
       item.selectedOptions.forEach((opt) => {
-        itemTotal += parseFloat(opt.price || 0);
+        const price = parseFloat(opt.price || 0);
+        if (price <= 0) return;
+        const rawQty = Number(opt.quantity);
+        const quantity = Number.isFinite(rawQty) ? rawQty : 1;
+        if (quantity <= 0) return;
+        optionsPerUnit += price * quantity;
       });
     }
-    total += itemTotal * item.quantity;
+    const itemQuantity = item.quantity || 0;
+    total += (basePrice + optionsPerUnit) * itemQuantity;
   });
 
   const client = await db.pool.connect();
@@ -66,12 +114,21 @@ exports.placeDeliveryOrder = async (req, res) => {
     customerAddress,
     paymentMethod,
     notes,
+    customerEmail,
+    customerExternalId,
+    customerAvatar,
   } = req.body;
 
   // The geocoding service only needs the main address, not floor/apartment details.
   const geocodingAddress = `${customerAddress.split(",")[0]}, ${
     process.env.RESTAURANT_LOCATION
   }`;
+
+  const sessionUser = getSessionUser(req);
+  const externalId = customerExternalId || sessionUser?.id || null;
+  const email = customerEmail || sessionUser?.email || null;
+  const avatar = customerAvatar || sessionUser?.picture || null;
+  const displayName = customerName || sessionUser?.name || sessionUser?.username || customerName;
 
   let location;
   try {
@@ -121,20 +178,15 @@ exports.placeDeliveryOrder = async (req, res) => {
 
   let total = deliveryFee;
   cart.forEach((item) => {
-    let itemTotal = parseFloat(item.price || 0);
-    if (item.selectedOptions) {
-      item.selectedOptions.forEach((opt) => {
-        itemTotal += parseFloat(opt.price || 0);
-      });
-    }
-    total += itemTotal * item.quantity;
+    const { lineTotal } = calculateLineTotals(item);
+    total += lineTotal;
   });
 
   const client = await db.pool.connect();
   try {
     await client.query("BEGIN");
     const orderResult = await client.query(
-      "INSERT INTO orders (table_id, status, total, notes, payment_method, order_type, customer_name, customer_phone, customer_address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
+      "INSERT INTO orders (table_id, status, total, notes, payment_method, order_type, customer_name, customer_phone, customer_address, customer_email, customer_external_id, customer_avatar, delivery_fee) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *",
       [
         null,
         "pending",
@@ -142,14 +194,22 @@ exports.placeDeliveryOrder = async (req, res) => {
         notes,
         paymentMethod,
         "delivery",
-        customerName,
+        displayName,
         customerPhone,
         customerAddress,
+        email,
+        externalId,
+        avatar,
+        deliveryFee,
       ]
     );
     const newOrder = orderResult.rows[0];
 
     for (const item of cart) {
+      const normalised = {
+        ...item,
+        selectedOptions: normaliseOptions(item.selectedOptions),
+      };
       await client.query(
         "INSERT INTO order_items (order_id, menu_item_id, name, size, quantity, price, selected_options) VALUES ($1, $2, $3, $4, $5, $6, $7)",
         [
@@ -159,14 +219,16 @@ exports.placeDeliveryOrder = async (req, res) => {
           item.size || null,
           item.quantity,
           item.price,
-          item.selectedOptions ? JSON.stringify(item.selectedOptions) : null,
+          normalised.selectedOptions.length
+            ? JSON.stringify(normalised.selectedOptions)
+            : null,
         ]
       );
     }
 
     await client.query("COMMIT");
 
-    const finalOrder = { ...newOrder, items: cart };
+    const finalOrder = { ...newOrder, delivery_fee: deliveryFee, items: cart };
     getIO().emit("new_order", finalOrder);
     res.status(201).json(finalOrder);
   } catch (err) {
@@ -175,6 +237,41 @@ exports.placeDeliveryOrder = async (req, res) => {
     res.status(500).json({ message: "Server error while placing order." });
   } finally {
     client.release();
+  }
+};
+
+exports.repriceOrder = async (req, res) => {
+  try {
+    const { items = [] } = req.body || {};
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: "No items provided" });
+    }
+
+    const normalised = items.map((item) => ({
+      ...item,
+      selected_options: normaliseOptions(
+        item.selectedOptions || item.selected_options || item.options || []
+      ),
+    }));
+
+    const withTotals = normalised.map((item) => ({
+      ...item,
+      ...calculateLineTotals(item),
+    }));
+
+    const total = withTotals.reduce((sum, entry) => sum + entry.lineTotal, 0);
+
+    res.json({
+      items: withTotals.map(({ selected_options, ...rest }) => ({
+        ...rest,
+        selected_options,
+        selectedOptions: selected_options,
+      })),
+      total,
+    });
+  } catch (err) {
+    console.error("Error repricing order:", err);
+    res.status(500).json({ message: "Failed to reprice order" });
   }
 };
 
@@ -300,6 +397,157 @@ exports.submitFeedback = async (req, res) => {
     res.json(rows[0]);
   } catch (err) {
     console.error("Error submitting feedback:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getOrdersForUser = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.json({ orders: [], frequentItems: [] });
+    }
+
+    const clauses = [];
+    const params = [];
+    if (user.id) {
+      params.push(user.id);
+      clauses.push(`customer_external_id = $${params.length}`);
+    }
+    if (user.email) {
+      params.push(user.email);
+      clauses.push(`customer_email = $${params.length}`);
+    }
+
+    if (!clauses.length) {
+      return res.json({ orders: [], frequentItems: [] });
+    }
+
+    const whereClause = clauses.length > 1 ? `(${clauses.join(" OR ")})` : clauses[0];
+    const ordersQuery = `
+      SELECT id, status, total, notes, payment_method, order_type,
+             customer_name, customer_phone, customer_address,
+             customer_email, customer_external_id, customer_avatar,
+             created_at
+      FROM orders
+      WHERE ${whereClause}
+        AND order_type = 'delivery'
+      ORDER BY created_at DESC
+      LIMIT 25
+    `;
+
+    const { rows: orders } = await db.query(ordersQuery, params);
+    if (!orders.length) {
+      return res.json({ orders: [], frequentItems: [] });
+    }
+
+    const orderIds = orders.map((order) => order.id);
+    const { rows: orderItems } = await db.query(
+      `SELECT id, order_id, menu_item_id, name, size, quantity, price, selected_options
+       FROM order_items
+       WHERE order_id = ANY($1::int[])
+       ORDER BY id ASC`,
+      [orderIds]
+    );
+
+    const itemsByOrder = new Map();
+    for (const item of orderItems) {
+      const list = itemsByOrder.get(item.order_id) || [];
+      let rawOptions;
+      if (Array.isArray(item.selected_options)) {
+        rawOptions = item.selected_options;
+      } else if (typeof item.selected_options === "string") {
+        try {
+          rawOptions = JSON.parse(item.selected_options);
+        } catch (err) {
+          rawOptions = [];
+        }
+      } else if (item.selected_options && typeof item.selected_options === "object") {
+        rawOptions = item.selected_options;
+      } else {
+        rawOptions = [];
+      }
+      const normalizedOptions = Array.isArray(rawOptions)
+        ? rawOptions.map((opt) => ({
+            ...opt,
+            price: typeof opt.price === "number" ? opt.price : Number(opt.price) || 0,
+            quantity: typeof opt.quantity === "number" ? opt.quantity : Number(opt.quantity) || 0,
+          }))
+        : [];
+      list.push({
+        ...item,
+        price:
+          typeof item.price === "number" ? item.price : Number(item.price) || 0,
+        quantity:
+          typeof item.quantity === "number" ? item.quantity : Number(item.quantity) || 1,
+        menu_item_id:
+          typeof item.menu_item_id === "number"
+            ? item.menu_item_id
+            : item.menu_item_id
+            ? Number(item.menu_item_id) || null
+            : null,
+        selected_options: normalizedOptions,
+      });
+      itemsByOrder.set(item.order_id, list);
+    }
+
+    const ordersWithItems = orders.map((order) => ({
+      ...order,
+      items: itemsByOrder.get(order.id) || [],
+    }));
+
+    const favoritesMap = new Map();
+    for (const order of ordersWithItems) {
+      for (const item of order.items) {
+        const options = Array.isArray(item.selected_options)
+          ? item.selected_options
+          : [];
+        const normalizedOptions = options
+          .map((opt) => ({
+            id: opt.id ?? opt.option_id ?? opt.menu_option_id ?? opt.slug ?? opt.name,
+            name: opt.name,
+            price:
+              typeof opt.price === "number" ? opt.price : Number(opt.price) || 0,
+            quantity:
+              typeof opt.quantity === "number" ? opt.quantity : Number(opt.quantity) || 1,
+          }))
+          .sort((a, b) => (a.id || "").localeCompare(b.id || ""));
+
+        const key = `${item.menu_item_id || item.name}::${item.size || ""}::${JSON.stringify(normalizedOptions)}`;
+        const quantity = Number(item.quantity) || 1;
+        if (!favoritesMap.has(key)) {
+          favoritesMap.set(key, {
+            menuItemId: item.menu_item_id,
+            name: item.name,
+            size: item.size || null,
+            price: item.price,
+            selectedOptions: normalizedOptions,
+            totalQuantity: 0,
+            lastOrderedAt: order.created_at,
+            quantity,
+          });
+        }
+        const entry = favoritesMap.get(key);
+        entry.totalQuantity += quantity;
+        entry.quantity = quantity || entry.quantity || 1;
+        if (order.created_at && new Date(order.created_at) > new Date(entry.lastOrderedAt)) {
+          entry.lastOrderedAt = order.created_at;
+        }
+      }
+    }
+
+    const frequentItems = Array.from(favoritesMap.values())
+      .sort((a, b) => {
+        if (b.totalQuantity !== a.totalQuantity) {
+          return b.totalQuantity - a.totalQuantity;
+        }
+        return new Date(b.lastOrderedAt) - new Date(a.lastOrderedAt);
+      })
+      .slice(0, 5);
+
+    res.json({ orders: ordersWithItems, frequentItems });
+  } catch (err) {
+    console.error("Error fetching user orders:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

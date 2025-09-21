@@ -5,11 +5,76 @@ import { GiHamburgerMenu } from "react-icons/gi";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
 import images from "../../constants/images";
 import "./Navbar.css";
+import { useSelector, useDispatch } from "react-redux";
+import { selectCartItemCount } from "../../store";
+import { clearUser } from "../../store/authSlice";
+import { useApi } from "../../ApiProvider";
+import { FaUserCircle } from "react-icons/fa";
 
 const Navbar = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [toggleMenu, setToggleMenu] = React.useState(false);
+  const [showUserMenu, setShowUserMenu] = React.useState(false);
+  const cartCount = useSelector(selectCartItemCount);
+  const user = useSelector((state) => state.auth.user);
+  const dispatch = useDispatch();
+  const api = useApi();
+
+  React.useEffect(() => {
+    if (!showUserMenu) return;
+    const handleClick = (event) => {
+      if (!event.target.closest(".navbar__userMenu")) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [showUserMenu]);
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch (err) {
+      console.error("Logout failed", err);
+    } finally {
+      dispatch(clearUser());
+      setShowUserMenu(false);
+      navigate("/");
+    }
+  };
+
+  const goToAccount = () => {
+    setShowUserMenu(false);
+    navigate("/account");
+  };
+
+  const hasCustomAvatar = (url) => {
+    if (!url) return false;
+    const isGoogle = /^https:\/\/lh3\.googleusercontent\.com\//i.test(url);
+    if (!isGoogle) return true;
+    return url.includes("/a-/");
+  };
+
+  const renderUserAvatar = () => {
+    const size = 36;
+    if (hasCustomAvatar(user?.picture)) {
+      return (
+        <img
+          src={user.picture}
+          alt={user.name || user.username || "User avatar"}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: "50%",
+            objectFit: "cover",
+          }}
+        />
+      );
+    }
+    return <FaUserCircle size={size} color="#DCCA87" />;
+  };
+
   return (
     <>
       {/* Top contact + language bar with golden separator */}
@@ -122,6 +187,21 @@ const Navbar = () => {
                 ></i>
               </span>
               {t("menu")}
+              {cartCount > 0 && (
+                <span
+                  style={{
+                    marginLeft: 8,
+                    background: "#DCCA87",
+                    color: "#000",
+                    borderRadius: 12,
+                    padding: "2px 6px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  {cartCount}
+                </span>
+              )}
             </button>
           </li>
           <li className="p__opensans">
@@ -129,6 +209,99 @@ const Navbar = () => {
           </li>
           <li className="p__opensans">
             <Link to="/#contact">{t("contact")}</Link>
+          </li>
+          <li className="p__opensans">
+            {user ? (
+              <div
+                className="navbar__userMenu"
+                style={{ position: "relative" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowUserMenu((prev) => !prev)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    padding: 0,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 40,
+                    height: 40,
+                  }}
+                  aria-label={t("account")}
+                >
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {renderUserAvatar()}
+                  </span>
+                </button>
+                {showUserMenu && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "110%",
+                      right: 0,
+                      background: "var(--color-black)",
+                      border: "1px solid var(--color-golden)",
+                      borderRadius: 8,
+                      minWidth: 170,
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.45)",
+                      zIndex: 400,
+                      padding: 8,
+                    }}
+                  >
+                    {/* <p className="p__opensans" style={{ color: 'var(--color-golden)', marginBottom: 8 }}>
+                      {t('account')}
+                    </p> */}
+                    <button
+                      type="button"
+                      onClick={goToAccount}
+                      className="p__opensans"
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "6px 8px",
+                        background: "transparent",
+                        border: "none",
+                        color: "#fff",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {t("account")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="p__opensans"
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "6px 8px",
+                        background: "transparent",
+                        border: "none",
+                        color: "#fff",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {t("logout")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link to="/account">{t("account")}</Link>
+            )}
           </li>
         </ul>
         {/*       <div className="app__navbar-login">
@@ -167,7 +340,7 @@ const Navbar = () => {
                 </li>
                 <li>
                   <Link to="/delivery" onClick={() => setToggleMenu(false)}>
-                    {t("menu")}
+                    {t("menu")} {cartCount > 0 ? `(${cartCount})` : ""}
                   </Link>
                 </li>
                 <li>
@@ -179,6 +352,36 @@ const Navbar = () => {
                   <Link to="/#contact" onClick={() => setToggleMenu(false)}>
                     {t("contact")}
                   </Link>
+                </li>
+                <li>
+                  {user ? (
+                    <div className="flex flex-col gap-3">
+                      <button
+                        type="button"
+                        className="p__opensans"
+                        onClick={() => {
+                          setToggleMenu(false);
+                          goToAccount();
+                        }}
+                      >
+                        {t("account")}
+                      </button>
+                      <button
+                        type="button"
+                        className="p__opensans"
+                        onClick={() => {
+                          setToggleMenu(false);
+                          handleLogout();
+                        }}
+                      >
+                        {t("logout")}
+                      </button>
+                    </div>
+                  ) : (
+                    <Link to="/account" onClick={() => setToggleMenu(false)}>
+                      {t("account")}
+                    </Link>
+                  )}
                 </li>
               </ul>
             </div>

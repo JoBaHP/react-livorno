@@ -1,46 +1,50 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useApi } from "../../ApiProvider";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import ConfirmationModal from "../ConfirmationModal";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { t } = useTranslation();
   const [editingUser, setEditingUser] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
   const api = useApi();
+  const queryClient = useQueryClient();
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.getAllUsers(),
+  });
 
-  const fetchUsers = () => {
-    setIsLoading(true);
-    api
-      .getAllUsers()
-      .then(setUsers)
-      .finally(() => setIsLoading(false));
-  };
-  useEffect(fetchUsers, [api]);
-
+  const saveUser = useMutation({
+    mutationFn: (userData) =>
+      userData.id
+        ? api.updateUserPassword(userData.id, userData.password)
+        : api.createUser(userData.username, userData.password, userData.role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
   const handleSave = async (userData) => {
-    if (userData.id) {
-      // This is for updating password
-      await api.updateUserPassword(userData.id, userData.password);
-    } else {
-      // This is for creating a new user
-      await api.createUser(userData.username, userData.password, userData.role);
-    }
+    await saveUser.mutateAsync(userData);
     setEditingUser(null);
-    fetchUsers();
   };
 
+  const deleteUser = useMutation({
+    mutationFn: (userId) => api.deleteUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
   const handleDelete = async (userId) => {
-    await api.deleteUser(userId);
+    await deleteUser.mutateAsync(userId);
     setDeletingUser(null);
-    fetchUsers();
   };
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold">Manage Users</h3>
+        <h3 className="text-xl font-bold">{t('admin_users.title')}</h3>
         <button
           onClick={() =>
             setEditingUser({ username: "", password: "", role: "waiter" })
@@ -48,19 +52,19 @@ export default function AdminUsers() {
           className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600"
         >
           <Plus size={18} />
-          Add New User
+          {t('admin_users.add_new')}
         </button>
       </div>
       {isLoading ? (
-        <p>Loading users...</p>
+        <p>{t('admin_users.loading')}</p>
       ) : (
         <div className="overflow-x-auto border rounded-lg">
           <table className="w-full text-left">
             <thead className="bg-gray-50">
               <tr>
-                <th className="p-3">Username</th>
-                <th className="p-3">Role</th>
-                <th className="p-3 text-center">Actions</th>
+                <th className="p-3">{t('admin_users.username')}</th>
+                <th className="p-3">{t('admin_users.role')}</th>
+                <th className="p-3 text-center">{t('admin_users.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -75,7 +79,7 @@ export default function AdminUsers() {
                     <button
                       onClick={() => setEditingUser({ ...user, password: "" })}
                       className="text-indigo-600 hover:text-indigo-800 p-1"
-                      title="Reset Password"
+                      title={t('admin_users.reset_password')}
                     >
                       <Edit size={18} />
                     </button>
@@ -83,7 +87,7 @@ export default function AdminUsers() {
                       <button
                         onClick={() => setDeletingUser(user)}
                         className="text-red-600 hover:text-red-800 p-1"
-                        title="Delete User"
+                        title={t('admin_users.delete_user')}
                       >
                         <Trash2 size={18} />
                       </button>
@@ -104,8 +108,8 @@ export default function AdminUsers() {
       )}
       {deletingUser && (
         <ConfirmationModal
-          title="Delete User"
-          message={`Are you sure you want to delete the user "${deletingUser.username}"?`}
+          title={t('admin_users.delete_title')}
+          message={t('admin_users.delete_confirm', { username: deletingUser.username })}
           onConfirm={() => handleDelete(deletingUser.id)}
           onCancel={() => setDeletingUser(null)}
         />
@@ -119,6 +123,7 @@ function UserForm({ user, onSave, onCancel }) {
   const [password, setPassword] = useState(user.password);
   const [role, setRole] = useState(user.role);
   const isNewUser = !user.id;
+  const { t } = useTranslation();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -132,14 +137,12 @@ function UserForm({ user, onSave, onCancel }) {
         className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md"
       >
         <h3 className="text-xl font-bold mb-4">
-          {isNewUser ? "Add New User" : `Reset Password for ${user.username}`}
+          {isNewUser ? t('admin_users.form_add') : t('admin_users.form_reset_for', { username: user.username })}
         </h3>
         <div className="space-y-4">
           {isNewUser && (
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Username
-              </label>
+              <label className="block text-sm font-medium text-gray-700">{t('admin_users.username')}</label>
               <input
                 type="text"
                 value={username}
@@ -150,9 +153,7 @@ function UserForm({ user, onSave, onCancel }) {
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {isNewUser ? "Temporary Password" : "New Password"}
-            </label>
+            <label className="block text-sm font-medium text-gray-700">{isNewUser ? t('admin_users.temp_password') : t('admin_users.new_password')}</label>
             <input
               type="text"
               value={password}
@@ -163,16 +164,14 @@ function UserForm({ user, onSave, onCancel }) {
           </div>
           {isNewUser && (
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Role
-              </label>
+              <label className="block text-sm font-medium text-gray-700">{t('admin_users.role')}</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
               >
-                <option value="waiter">Waiter</option>
-                <option value="admin">Admin</option>
+                <option value="waiter">{t('admin_users.waiter')}</option>
+                <option value="admin">{t('admin_users.admin')}</option>
               </select>
             </div>
           )}
@@ -183,13 +182,13 @@ function UserForm({ user, onSave, onCancel }) {
             onClick={onCancel}
             className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300"
           >
-            Cancel
+            {t('admin_users.cancel')}
           </button>
           <button
             type="submit"
             className="bg-indigo-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-indigo-700"
           >
-            Save
+            {t('admin_users.save')}
           </button>
         </div>
       </form>

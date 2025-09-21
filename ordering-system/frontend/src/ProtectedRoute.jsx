@@ -1,16 +1,18 @@
 import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
+import { useTranslation } from 'react-i18next';
 
 const ProtectedRoute = ({ allowedRoles }) => {
   const { user, loading } = useAuth();
+  const { t } = useTranslation();
   const location = useLocation();
 
   // 1. While the authentication check is running, show a loading message.
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        Checking authentication...
+        {t('auth_checking')}
       </div>
     );
   }

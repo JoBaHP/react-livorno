@@ -1,45 +1,49 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useApi } from "../../ApiProvider";
 import { Plus, Edit, Trash2, MapPin } from "lucide-react";
 import ConfirmationModal from "../ConfirmationModal";
 import { formatCurrency } from '../../utils/format';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminZones() {
-  const [zones, setZones] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { t } = useTranslation();
   const [editingZone, setEditingZone] = useState(null);
   const [deletingZone, setDeletingZone] = useState(null);
   const api = useApi();
+  const queryClient = useQueryClient();
+  const { data: zones = [], isLoading } = useQuery({
+    queryKey: ['zones'],
+    queryFn: () => api.getAllZones(),
+  });
 
-  const fetchZones = () => {
-    setIsLoading(true);
-    api
-      .getAllZones()
-      .then(setZones)
-      .finally(() => setIsLoading(false));
-  };
-  useEffect(fetchZones, [api]);
-
+  const saveZone = useMutation({
+    mutationFn: (zoneData) =>
+      zoneData.id ? api.updateZone(zoneData.id, zoneData) : api.createZone(zoneData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['zones'] });
+    },
+  });
   const handleSave = async (zoneData) => {
-    if (zoneData.id) {
-      await api.updateZone(zoneData.id, zoneData);
-    } else {
-      await api.createZone(zoneData);
-    }
+    await saveZone.mutateAsync(zoneData);
     setEditingZone(null);
-    fetchZones();
   };
 
+  const deleteZone = useMutation({
+    mutationFn: (id) => api.deleteZone(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['zones'] });
+    },
+  });
   const handleDelete = async (id) => {
-    await api.deleteZone(id);
+    await deleteZone.mutateAsync(id);
     setDeletingZone(null);
-    fetchZones();
   };
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold">Manage Delivery Zones</h3>
+        <h3 className="text-xl font-bold">{t('admin_zones.title')}</h3>
         <button
           onClick={() =>
             setEditingZone({
@@ -53,20 +57,20 @@ export default function AdminZones() {
           className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600"
         >
           <Plus size={18} />
-          Add New Zone
+          {t('admin_zones.add_new')}
         </button>
       </div>
       {isLoading ? (
-        <p>Loading zones...</p>
+        <p>{t('admin_zones.loading')}</p>
       ) : (
         <div className="overflow-x-auto border rounded-lg">
           <table className="w-full text-left">
             <thead className="bg-gray-50">
               <tr>
-                <th className="p-3">Zone Name</th>
-                <th className="p-3">Delivery Fee</th>
-                <th className="p-3">Radius (meters)</th>
-                <th className="p-3 text-center">Actions</th>
+                <th className="p-3">{t('admin_zones.zone_name')}</th>
+                <th className="p-3">{t('admin_zones.delivery_fee')}</th>
+                <th className="p-3">{t('admin_zones.radius_meters')}</th>
+                <th className="p-3 text-center">{t('admin_zones.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -82,14 +86,14 @@ export default function AdminZones() {
                     <button
                       onClick={() => setEditingZone(zone)}
                       className="text-indigo-600 hover:text-indigo-800 p-1"
-                      title="Edit Zone"
+                      title={t('admin_zones.edit_zone')}
                     >
                       <Edit size={18} />
                     </button>
                     <button
                       onClick={() => setDeletingZone(zone)}
                       className="text-red-600 hover:text-red-800 p-1"
-                      title="Delete Zone"
+                      title={t('admin_zones.delete_zone')}
                     >
                       <Trash2 size={18} />
                     </button>
@@ -109,8 +113,8 @@ export default function AdminZones() {
       )}
       {deletingZone && (
         <ConfirmationModal
-          title="Delete Zone"
-          message={`Are you sure you want to delete the zone "${deletingZone.name}"?`}
+          title={t('admin_zones.delete_title')}
+          message={t('admin_zones.delete_confirm', { name: deletingZone.name })}
           onConfirm={() => handleDelete(deletingZone.id)}
           onCancel={() => setDeletingZone(null)}
         />
@@ -121,6 +125,7 @@ export default function AdminZones() {
 
 function ZoneForm({ zone, onSave, onCancel }) {
   const [formData, setFormData] = useState(zone);
+  const { t } = useTranslation();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -139,18 +144,13 @@ function ZoneForm({ zone, onSave, onCancel }) {
         className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-lg"
       >
         <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <MapPin /> {zone.id ? "Edit" : "Add"} Delivery Zone
+          <MapPin /> {zone.id ? t('admin_zones.form_title_edit') : t('admin_zones.form_title_add')}
         </h3>
-        <p className="text-sm text-gray-500 mb-4">
-          You can use a tool like Google Maps to find the latitude and longitude
-          of your zone's center.
-        </p>
+        <p className="text-sm text-gray-500 mb-4">{t('admin_zones.form_hint')}</p>
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Zone Name
-              </label>
+              <label className="block text-sm font-medium text-gray-700">{t('admin_zones.field_zone_name')}</label>
               <input
                 type="text"
                 name="name"
@@ -161,9 +161,7 @@ function ZoneForm({ zone, onSave, onCancel }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Delivery Fee ($)
-              </label>
+              <label className="block text-sm font-medium text-gray-700">{t('admin_zones.field_delivery_fee')}</label>
               <input
                 type="number"
                 step="0.01"
@@ -177,9 +175,7 @@ function ZoneForm({ zone, onSave, onCancel }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Center Latitude
-              </label>
+              <label className="block text-sm font-medium text-gray-700">{t('admin_zones.field_center_lat')}</label>
               <input
                 type="number"
                 step="any"
@@ -191,9 +187,7 @@ function ZoneForm({ zone, onSave, onCancel }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Center Longitude
-              </label>
+              <label className="block text-sm font-medium text-gray-700">{t('admin_zones.field_center_lng')}</label>
               <input
                 type="number"
                 step="any"
@@ -206,9 +200,7 @@ function ZoneForm({ zone, onSave, onCancel }) {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Radius (in meters)
-            </label>
+            <label className="block text-sm font-medium text-gray-700">{t('admin_zones.field_radius')}</label>
             <input
               type="number"
               name="radius_meters"
@@ -225,13 +217,13 @@ function ZoneForm({ zone, onSave, onCancel }) {
             onClick={onCancel}
             className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300"
           >
-            Cancel
+            {t('admin_zones.cancel')}
           </button>
           <button
             type="submit"
             className="bg-indigo-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-indigo-700"
           >
-            Save Zone
+            {t('admin_zones.save')}
           </button>
         </div>
       </form>

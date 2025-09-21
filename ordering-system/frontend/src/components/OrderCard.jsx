@@ -98,11 +98,62 @@ export default function OrderCard({ order, onUpdate }) {
     order.created_at || order.createdAt
   ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  const subtotal = order.items.reduce(
-    (sum, item) => sum + parseFloat(item.price || 0) * item.quantity,
-    0
-  );
-  const deliveryFee = isDelivery ? orderTotal - subtotal : 0;
+  const normaliseOptions = (options = []) =>
+    options.map((opt) => {
+      const price = parseFloat(opt.price || 0);
+      const rawQty = Number(opt.quantity);
+      const quantity = Number.isFinite(rawQty)
+        ? rawQty
+        : price > 0
+        ? 1
+        : 0;
+      return {
+        ...opt,
+        price,
+        quantity,
+      };
+    });
+
+  const calculateLineTotals = (item) => {
+    const quantity = item.quantity || 0;
+    const basePrice = parseFloat(item.price || 0);
+    const normalizedOptions = normaliseOptions(
+      item.selected_options || item.selectedOptions || []
+    );
+    const paidOptionsPerUnit = normalizedOptions.reduce((sum, opt) => {
+      if (opt.price <= 0 || opt.quantity <= 0) return sum;
+      return sum + opt.price * opt.quantity;
+    }, 0);
+    const baseLineTotal = basePrice * quantity;
+    const optionsLineTotal = paidOptionsPerUnit * quantity;
+    const lineTotal = baseLineTotal + optionsLineTotal;
+    return {
+      baseLineTotal,
+      optionsLineTotal,
+      lineTotal,
+      normalizedOptions,
+      basePrice,
+      quantity,
+    };
+  };
+
+  const itemTotals = (order.items || []).map((item) => ({
+    item,
+    ...calculateLineTotals(item),
+  }));
+
+  const subtotal = itemTotals.reduce((sum, entry) => sum + entry.lineTotal, 0);
+  const deliveryFee = isDelivery
+    ? (() => {
+        const recordedFee = parseFloat(
+          order.delivery_fee || order.deliveryFee || order.delivery_fee_amount || 0
+        );
+        if (!Number.isNaN(recordedFee) && recordedFee > 0) {
+          return recordedFee;
+        }
+        return Math.max(0, orderTotal - subtotal);
+      })()
+    : 0;
 
   return (
     <div
@@ -161,23 +212,35 @@ export default function OrderCard({ order, onUpdate }) {
       )}
 
       <ul className="mt-2 space-y-1 text-sm">
-        {order.items.map((item, index) => {
-          const selectedOptions = item.selected_options || item.selectedOptions;
+        {itemTotals.map(
+          (
+            { item, normalizedOptions, baseLineTotal, quantity },
+            index
+          ) => {
+          const displayOptions = normalizedOptions.filter((opt) =>
+            opt.price > 0 ? opt.quantity > 0 : true
+          );
           return (
             <li key={item.id || index}>
               <div className="flex justify-between">
                 <span>
-                  {item.quantity} x {item.name} {item.size && `(${item.size})`}
+                  {quantity} x {item.name} {item.size && `(${item.size})`}
                 </span>
                 <span>
-                  {formatCurrency(item.quantity * parseFloat(item.price || 0))}
+                  {formatCurrency(baseLineTotal)}
                 </span>
               </div>
-              {selectedOptions && selectedOptions.length > 0 && (
+              {displayOptions.length > 0 && (
                 <ul className="text-xs text-slate-500 pl-4 list-disc mt-1">
-                  {selectedOptions.map((opt) => (
+                  {displayOptions.map((opt) => (
                     <li key={opt.id}>
-                      {opt.name} (+{formatCurrency(parseFloat(opt.price))})
+                      {opt.name}
+                      {opt.price > 0 && (
+                        <>
+                          {" "}(+{formatCurrency(opt.price * opt.quantity || 0)}
+                          {quantity > 1 ? ` × ${quantity}` : ""})
+                        </>
+                      )}
                     </li>
                   ))}
                 </ul>

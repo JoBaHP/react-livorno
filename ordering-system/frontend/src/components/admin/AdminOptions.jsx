@@ -1,42 +1,45 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { formatCurrency } from '../../utils/format';
 import { useApi } from "../../ApiProvider";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import ConfirmationModal from "../ConfirmationModal";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminOptions() {
-  const [options, setOptions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { t } = useTranslation();
   const [editingOption, setEditingOption] = useState(null);
   const [deletingOption, setDeletingOption] = useState(null);
   const api = useApi();
+  const queryClient = useQueryClient();
+  const { data: options = [], isLoading, error } = useQuery({
+    queryKey: ['options'],
+    queryFn: () => api.getAllOptions().then((d) => (Array.isArray(d) ? d : [])),
+  });
 
-  const fetchOptions = () => {
-    setIsLoading(true);
-    setError("");
-    api
-      .getAllOptions()
-      .then((data) => (Array.isArray(data) ? setOptions(data) : setOptions([])))
-      .catch(() => setError("Failed to fetch options."))
-      .finally(() => setIsLoading(false));
-  };
-  useEffect(fetchOptions, [api]);
-
+  const saveOption = useMutation({
+    mutationFn: (optionData) =>
+      optionData.id
+        ? api.updateOption(optionData.id, optionData.name, optionData.price)
+        : api.createOption(optionData.name, optionData.price),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['options'] });
+    },
+  });
   const handleSave = async (optionData) => {
-    if (optionData.id) {
-      await api.updateOption(optionData.id, optionData.name, optionData.price);
-    } else {
-      await api.createOption(optionData.name, optionData.price);
-    }
+    await saveOption.mutateAsync(optionData);
     setEditingOption(null);
-    fetchOptions();
   };
 
+  const deleteOption = useMutation({
+    mutationFn: (id) => api.deleteOption(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['options'] });
+    },
+  });
   const handleDelete = async (id) => {
-    await api.deleteOption(id);
+    await deleteOption.mutateAsync(id);
     setDeletingOption(null);
-    fetchOptions();
   };
 
   const chargeableOptions = options.filter((opt) => parseFloat(opt.price) > 0);
@@ -45,28 +48,28 @@ export default function AdminOptions() {
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold">Manage Item Options</h3>
+        <h3 className="text-xl font-bold">{t('admin_options.title')}</h3>
         <button
           onClick={() => setEditingOption({ name: "", price: 0 })}
           className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600"
         >
           <Plus size={18} />
-          Add New Option
+          {t('admin_options.add_new')}
         </button>
       </div>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className="text-red-500">{error}</p>}
+      {isLoading && <p>{t('admin_options.loading')}</p>}
+      {error && <p className="text-red-500">{t('admin_options.fetch_error')}</p>}
 
       <div className="space-y-8">
         <OptionsTable
-          title="Chargeable Extras"
+          title={t('admin_options.chargeable')}
           options={chargeableOptions}
           onEdit={setEditingOption}
           onDelete={setDeletingOption}
         />
         <OptionsTable
-          title="Free Add-ons"
+          title={t('admin_options.free_addons')}
           options={freeOptions}
           onEdit={setEditingOption}
           onDelete={setDeletingOption}
@@ -82,8 +85,8 @@ export default function AdminOptions() {
       )}
       {deletingOption && (
         <ConfirmationModal
-          title="Delete Option"
-          message={`Are you sure you want to delete "${deletingOption.name}"? It will be removed from all menu items.`}
+          title={t('admin_options.delete_title')}
+          message={t('admin_options.delete_confirm', { name: deletingOption.name })}
           onConfirm={() => handleDelete(deletingOption.id)}
           onCancel={() => setDeletingOption(null)}
         />
@@ -93,6 +96,7 @@ export default function AdminOptions() {
 }
 
 function OptionsTable({ title, options, onEdit, onDelete }) {
+  const { t } = useTranslation();
   return (
     <div>
       <h4 className="text-lg font-semibold mb-2">{title}</h4>
@@ -100,9 +104,9 @@ function OptionsTable({ title, options, onEdit, onDelete }) {
         <table className="w-full text-left">
           <thead className="bg-gray-50">
             <tr>
-              <th className="p-3">Name</th>
-              <th className="p-3">Price</th>
-              <th className="p-3 text-center">Actions</th>
+              <th className="p-3">{t('admin_options.name')}</th>
+              <th className="p-3">{t('admin_options.price')}</th>
+              <th className="p-3 text-center">{t('admin_options.actions')}</th>
             </tr>
           </thead>
           <tbody>

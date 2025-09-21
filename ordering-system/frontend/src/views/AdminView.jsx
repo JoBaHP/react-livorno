@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from 'react-i18next';
 import AdminOrders from "../components/admin/AdminOrders";
 import AdminMenu from "../components/admin/AdminMenu";
 import AdminTables from "../components/admin/AdminTables";
@@ -9,18 +10,19 @@ import AdminZones from "../components/admin/AdminZones";
 import AdminStreets from "../components/admin/AdminStreets";
 
 export default function AdminView() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState("reports");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const sections = [
-    { key: "reports", label: "Reports", icon: IconChart },
-    { key: "menu", label: "Menu Management", icon: IconList },
-    { key: "options", label: "Options Management", icon: IconSliders },
-    { key: "zones", label: "Delivery Zones", icon: IconMap },
-    { key: "streets", label: "Street Management", icon: IconRoad },
-    { key: "users", label: "User Management", icon: IconUsers },
-    { key: "orders", label: "All Orders", icon: IconReceipt },
-    { key: "tables", label: "Table Management", icon: IconTable },
+    { key: "reports", label: t('sections.reports'), icon: IconChart },
+    { key: "menu", label: t('sections.menu'), icon: IconList },
+    { key: "options", label: t('sections.options'), icon: IconSliders },
+    { key: "zones", label: t('sections.zones'), icon: IconMap },
+    { key: "streets", label: t('sections.streets'), icon: IconRoad },
+    { key: "users", label: t('sections.users'), icon: IconUsers },
+    { key: "orders", label: t('sections.orders'), icon: IconReceipt },
+    { key: "tables", label: t('sections.tables'), icon: IconTable },
   ];
 
   return (
@@ -30,7 +32,7 @@ export default function AdminView() {
         <div className="p-5 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">AP</span>
-            <h2 className="text-xl font-semibold text-slate-800">Admin Panel</h2>
+            <h2 className="text-xl font-semibold text-slate-800">{t('admin_panel')}</h2>
           </div>
         </div>
         <nav className="flex-1 overflow-auto p-3 space-y-1">
@@ -55,7 +57,7 @@ export default function AdminView() {
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">AP</span>
-              <h2 className="text-lg font-semibold text-slate-800">Admin Panel</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('admin_panel')}</h2>
             </div>
             <button
               type="button"
@@ -86,7 +88,7 @@ export default function AdminView() {
             />
             <div className="absolute left-0 top-0 h-full w-80 bg-white shadow-xl flex flex-col">
               <div className="flex items-center justify-between p-4 border-b border-slate-200">
-                <span className="text-lg font-semibold text-slate-800">Manage</span>
+                <span className="text-lg font-semibold text-slate-800">{t('admin_panel')}</span>
                 <button
                   type="button"
                   aria-label="Close menu"
@@ -129,8 +131,8 @@ export default function AdminView() {
           <div className="max-w-7xl mx-auto">
             <div className="hidden md:flex items-end justify-between mb-6">
               <div>
-                <h1 className="text-2xl font-semibold text-slate-800">Admin Panel</h1>
-                <p className="text-slate-500 text-sm">Manage menu, orders, users and more</p>
+                <h1 className="text-2xl font-semibold text-slate-800">{t('admin_panel')}</h1>
+                <p className="text-slate-500 text-sm">{t('admin_manage_subtitle')}</p>
               </div>
             </div>
             {tab === "reports" && <AdminReports />}

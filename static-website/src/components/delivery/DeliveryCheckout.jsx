@@ -87,13 +87,14 @@ export default function DeliveryCheckout({ cart, onPlaceOrder, onBackToMenu, upd
 
   const subtotal = cart.reduce((sum, item) => {
     const baseItemTotal = parseFloat(item.price || 0) * (item.quantity || 0);
-    const optionsTotal = item.selectedOptions
+    const perUnitOptions = item.selectedOptions
       ? item.selectedOptions.reduce((optionSum, opt) => {
           const optionPrice = parseFloat(opt.price || 0);
           const optionQuantity = opt.quantity || 0;
           return optionSum + optionPrice * optionQuantity;
         }, 0)
       : 0;
+    const optionsTotal = perUnitOptions * (item.quantity || 1);
     return sum + baseItemTotal + optionsTotal;
   }, 0);
 

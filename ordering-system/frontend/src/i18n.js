@@ -5,7 +5,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 const resources = {
   en: {
     translation: {
-      app_title: 'Ristorante',
+      app_title: 'Livorno',
       // MenuItem
       customize: 'Customize',
       add: 'Add',
@@ -236,7 +236,7 @@ const resources = {
   },
   sr: {
     translation: {
-      app_title: 'Ristorante',
+      app_title: 'Livorno',
       // MenuItem
       customize: 'Prilagodi',
       add: 'Dodaj',

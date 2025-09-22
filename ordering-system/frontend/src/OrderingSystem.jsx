@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import CustomerView from "./views/CustomerView";
-import { UtensilsCrossed, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { selectCartItemCount, selectCurrentOrder } from './store';
@@ -26,10 +26,12 @@ export default function OrderingSystem() {
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <nav className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="bg-amber-400 p-2 rounded-full">
-              <UtensilsCrossed className="text-white" size={24} />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{t('app_title')}</h1>
+            <img
+              src="/livorno-logo.png"
+              alt={t('app_title')}
+              className="h-10 w-auto"
+            />
+            <span className="sr-only">{t('app_title')}</span>
           </div>
           <div className="flex items-center gap-3">
             <LangButton code="en" label="EN" />

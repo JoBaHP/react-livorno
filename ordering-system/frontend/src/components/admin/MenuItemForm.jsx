@@ -3,24 +3,54 @@ import { useApi } from "../../ApiProvider";
 import { Trash2 } from "lucide-react";
 
 export default function MenuItemForm({ item, onSave, onCancel }) {
-  const [formData, setFormData] = useState(
-    item || {
-      name: "",
-      category: "",
-      description: "",
-      available: true,
-      price: "",
-      sizes: [],
-      imageUrl: "",
-    }
+  const emptyForm = {
+    name: "",
+    category: "",
+    description: "",
+    available: true,
+    price: "",
+    sizes: [],
+    imageUrl: "",
+  };
+
+  const normalizeItem = (data) => {
+    if (!data) return emptyForm;
+    const normalizedSizes = Array.isArray(data.sizes)
+      ? data.sizes.map((size) => ({
+          name: size?.name ?? "",
+          price:
+            size?.price !== undefined && size?.price !== null
+              ? String(size.price)
+              : "",
+        }))
+      : [];
+    return {
+      ...emptyForm,
+      ...data,
+      price:
+        data.price !== undefined && data.price !== null
+          ? String(data.price)
+          : "",
+      sizes: normalizedSizes,
+    };
+  };
+
+  const [formData, setFormData] = useState(normalizeItem(item));
+  const [hasSizes, setHasSizes] = useState(
+    Array.isArray(item?.sizes) && item.sizes.length > 0
   );
-  const [hasSizes, setHasSizes] = useState(!!item?.sizes?.length);
   const [allOptions, setAllOptions] = useState([]);
   const [optionsError, setOptionsError] = useState("");
   const [selectedOptions, setSelectedOptions] = useState(
     item?.options?.map((o) => o.id) || []
   );
   const api = useApi();
+
+  useEffect(() => {
+    setFormData(normalizeItem(item));
+    setHasSizes(Array.isArray(item?.sizes) && item.sizes.length > 0);
+    setSelectedOptions(item?.options?.map((o) => o.id) || []);
+  }, [item]);
 
   useEffect(() => {
     api
@@ -40,24 +70,67 @@ export default function MenuItemForm({ item, onSave, onCancel }) {
   };
 
   const handleSizeChange = (index, field, value) => {
-    const newSizes = [...formData.sizes];
+    const currentSizes = Array.isArray(formData.sizes) ? formData.sizes : [];
+    const newSizes = [...currentSizes];
+    if (!newSizes[index]) {
+      newSizes[index] = { name: "", price: "" };
+    }
     newSizes[index][field] = value;
     setFormData((prev) => ({ ...prev, sizes: newSizes }));
   };
 
   const addSize = () =>
-    setFormData((prev) => ({
-      ...prev,
-      sizes: [...prev.sizes, { name: "", price: "" }],
-    }));
+    setFormData((prev) => {
+      const current = Array.isArray(prev.sizes) ? prev.sizes : [];
+      return {
+        ...prev,
+        sizes: [...current, { name: "", price: "" }],
+      };
+    });
   const removeSize = (index) =>
-    setFormData((prev) => ({
-      ...prev,
-      sizes: prev.sizes.filter((_, i) => i !== index),
-    }));
+    setFormData((prev) => {
+      const current = Array.isArray(prev.sizes) ? prev.sizes : [];
+      return {
+        ...prev,
+        sizes: current.filter((_, i) => i !== index),
+      };
+    });
 
   const toggleHasSizes = () => {
-    setHasSizes((prev) => !prev);
+    setHasSizes((prev) => {
+      const next = !prev;
+      setFormData((prevData) => {
+        if (next) {
+          const existingSizes = Array.isArray(prevData.sizes)
+            ? prevData.sizes
+            : [];
+          const sizesToUse = existingSizes.length
+            ? existingSizes
+            : [
+                {
+                  name: "",
+                  price:
+                    prevData.price !== undefined && prevData.price !== null
+                      ? String(prevData.price)
+                      : "",
+                },
+              ];
+          return { ...prevData, sizes: sizesToUse };
+        }
+        const firstSizePrice = Array.isArray(prevData.sizes)
+          ? prevData.sizes[0]?.price
+          : "";
+        return {
+          ...prevData,
+          price:
+            firstSizePrice !== undefined && firstSizePrice !== null
+              ? String(firstSizePrice)
+              : prevData.price || "",
+          sizes: [],
+        };
+      });
+      return next;
+    });
   };
 
   const handleOptionToggle = (optionId) => {
@@ -76,14 +149,25 @@ export default function MenuItemForm({ item, onSave, onCancel }) {
       imageUrl: formData.imageUrl,
     };
     if (hasSizes) {
+      const normalizedSizes = Array.isArray(dataToSave.sizes)
+        ? dataToSave.sizes
+            .map((s) => ({
+              name: (s?.name || "").trim(),
+              price:
+                s?.price !== undefined && s?.price !== null && s?.price !== ""
+                  ? parseFloat(s.price)
+                  : null,
+            }))
+            .filter((s) => s.name)
+        : [];
       dataToSave.price = null;
-      dataToSave.sizes = dataToSave.sizes.map((s) => ({
-        ...s,
-        price: parseFloat(s.price),
-      }));
+      dataToSave.sizes = normalizedSizes;
     } else {
       dataToSave.sizes = null;
-      dataToSave.price = parseFloat(dataToSave.price);
+      dataToSave.price =
+        dataToSave.price !== "" && dataToSave.price !== null
+          ? parseFloat(dataToSave.price)
+          : null;
     }
     onSave(dataToSave);
   };
@@ -158,7 +242,7 @@ export default function MenuItemForm({ item, onSave, onCancel }) {
           ) : (
             <div className="space-y-2 border p-3 rounded-md">
               <h4 className="font-semibold">Sizes</h4>
-              {formData.sizes.map((size, index) => (
+              {(Array.isArray(formData.sizes) ? formData.sizes : []).map((size, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <FormInput
                     placeholder="Size Name"

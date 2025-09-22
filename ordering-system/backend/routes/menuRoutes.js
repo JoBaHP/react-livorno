@@ -4,6 +4,7 @@ const router = express.Router();
 
 router.get("/", menuController.getMenu);
 router.post("/", menuController.addMenuItem);
+router.put("/categories/order", menuController.reorderCategories);
 router.put("/:id", menuController.updateMenuItem);
 router.delete("/:id", menuController.deleteMenuItem);
 

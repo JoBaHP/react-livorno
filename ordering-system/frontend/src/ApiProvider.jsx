@@ -25,6 +25,18 @@ export const ApiProvider = ({ children }) => {
       const response = await fetch(url, fetchOptions);
       return response.json();
     },
+    reorderCategories: async (order) => {
+      const response = await fetch(`${API_URL}/api/menu/categories/order`, {
+        ...fetchOptions,
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to reorder categories');
+      }
+      return response.json();
+    },
     addMenuItem: async (item) => {
       const response = await fetch(`${API_URL}/api/menu`, {
         ...fetchOptions,

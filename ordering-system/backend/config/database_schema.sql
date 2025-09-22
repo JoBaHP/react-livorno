@@ -21,6 +21,12 @@ CREATE TABLE menu_items (
     image_url TEXT
 );
 
+CREATE TABLE menu_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    sort_order INT NOT NULL
+);
+
 -- Table for restaurant tables
 CREATE TABLE tables (
     id SERIAL PRIMARY KEY,

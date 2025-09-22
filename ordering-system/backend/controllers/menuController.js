@@ -1,7 +1,55 @@
 const db = require("../config/db");
 
+let categoryTableChecked = false;
+
+async function ensureCategoryTableExists() {
+  if (categoryTableChecked) return;
+  await db.query(`CREATE TABLE IF NOT EXISTS menu_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    sort_order INT NOT NULL
+  )`);
+  categoryTableChecked = true;
+}
+
+async function ensureCategoryEntry(category) {
+  if (!category) return null;
+  await ensureCategoryTableExists();
+  const existing = await db.query(
+    "SELECT id, sort_order FROM menu_categories WHERE name = $1",
+    [category]
+  );
+  if (existing.rows.length > 0) {
+    return existing.rows[0];
+  }
+
+  const maxResult = await db.query(
+    "SELECT COALESCE(MAX(sort_order), -1) AS max FROM menu_categories"
+  );
+  const currentMax = maxResult.rows[0]?.max ?? -1;
+  const nextOrder = currentMax + 1;
+  const insertResult = await db.query(
+    "INSERT INTO menu_categories (name, sort_order) VALUES ($1, $2) RETURNING id, sort_order",
+    [category, nextOrder]
+  );
+  return insertResult.rows[0];
+}
+
+async function syncCategoriesFromMenuItems() {
+  await ensureCategoryTableExists();
+  const distinctCategories = await db.query(
+    "SELECT DISTINCT category FROM menu_items WHERE category IS NOT NULL"
+  );
+  for (const row of distinctCategories.rows) {
+    const category = row.category;
+    // eslint-disable-next-line no-await-in-loop
+    await ensureCategoryEntry(category);
+  }
+}
+
 exports.getMenu = async (req, res) => {
   try {
+    await syncCategoriesFromMenuItems();
     const mode = req.query.mode || '';
     const isPaged = mode === 'admin' || req.query.page || req.query.limit;
 
@@ -15,10 +63,10 @@ exports.getMenu = async (req, res) => {
     let whereClause = '';
     if (categoryFilter) {
       if (categoryFilter === '__null__') {
-        whereClause = 'WHERE category IS NULL';
+        whereClause = 'WHERE menu_items.category IS NULL';
       } else {
         params.push(categoryFilter);
-        whereClause = `WHERE category = $${params.length}`;
+        whereClause = `WHERE menu_items.category = $${params.length}`;
       }
     }
 
@@ -26,18 +74,30 @@ exports.getMenu = async (req, res) => {
     let total = null;
     let totalPages = 1;
     let paginationParams = [];
-    let orderClause = "ORDER BY id ASC";
+    const baseFromClause = `FROM menu_items
+    LEFT JOIN menu_categories mc ON menu_items.category = mc.name`;
+    let orderClause = "ORDER BY menu_items.id ASC";
 
     if (isPaged) {
       const countResult = await db.query(countQuery, params);
       total = parseInt(countResult.rows[0].count, 10);
       totalPages = Math.max(1, Math.ceil(total / limit));
       const offset = (page - 1) * limit;
-      orderClause = `ORDER BY COALESCE(category, '') ${sortDir}, name ASC`;
+      if (sortDir === 'DESC') {
+        orderClause = `ORDER BY CASE WHEN menu_items.category IS NULL THEN 1 ELSE 0 END,
+          CASE WHEN mc.sort_order IS NULL THEN NULL ELSE mc.sort_order END DESC NULLS LAST,
+          COALESCE(menu_items.category, '') DESC,
+          menu_items.name ASC`;
+      } else {
+        orderClause = `ORDER BY CASE WHEN menu_items.category IS NULL THEN 1 ELSE 0 END,
+          CASE WHEN mc.sort_order IS NULL THEN NULL ELSE mc.sort_order END ASC NULLS LAST,
+          COALESCE(menu_items.category, '') ASC,
+          menu_items.name ASC`;
+      }
       paginationParams = [limit, offset];
     }
 
-    const menuQuery = `SELECT * FROM menu_items ${whereClause} ${orderClause}`;
+    const menuQuery = `SELECT menu_items.*, mc.sort_order ${baseFromClause} ${whereClause} ${orderClause}`;
     const menuQueryParams = params.slice();
     if (isPaged) {
       const limitPlaceholder = params.length + 1;
@@ -58,9 +118,18 @@ exports.getMenu = async (req, res) => {
       );
 
       const categoriesResult = await db.query(
-        "SELECT DISTINCT category FROM menu_items ORDER BY category ASC"
+        "SELECT name, sort_order FROM menu_categories ORDER BY sort_order ASC, name ASC"
       );
-      const categories = categoriesResult.rows.map((row) => row.category);
+      const categories = categoriesResult.rows.map((row) => ({
+        name: row.name,
+        sortOrder: row.sort_order,
+      }));
+      const uncategorizedResult = await db.query(
+        "SELECT EXISTS (SELECT 1 FROM menu_items WHERE category IS NULL) AS has_uncategorized"
+      );
+      if (uncategorizedResult.rows[0]?.has_uncategorized) {
+        categories.push({ name: null, sortOrder: null });
+      }
 
       return res.json({
         items: itemsWithOptions,
@@ -195,5 +264,56 @@ exports.deleteMenuItem = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.reorderCategories = async (req, res) => {
+  let transactionStarted = false;
+  try {
+    const { order } = req.body;
+    if (!Array.isArray(order)) {
+      return res.status(400).json({ message: 'Invalid payload' });
+    }
+
+    const cleaned = order
+      .map((name) => (typeof name === 'string' ? name.trim() : ''))
+      .filter((name) => name.length > 0);
+
+    await syncCategoriesFromMenuItems();
+
+    const existingResult = await db.query(
+      'SELECT name FROM menu_categories ORDER BY sort_order ASC, name ASC'
+    );
+    const existingNames = existingResult.rows.map((row) => row.name);
+
+    const remaining = existingNames.filter((name) => !cleaned.includes(name));
+    const finalOrder = [...cleaned, ...remaining];
+
+    await db.query('BEGIN');
+    transactionStarted = true;
+    for (let index = 0; index < finalOrder.length; index += 1) {
+      const name = finalOrder[index];
+      // eslint-disable-next-line no-await-in-loop
+      await ensureCategoryEntry(name);
+      // eslint-disable-next-line no-await-in-loop
+      await db.query('UPDATE menu_categories SET sort_order = $1 WHERE name = $2', [
+        index,
+        name,
+      ]);
+    }
+    await db.query('COMMIT');
+
+    return res.json({ success: true, order: finalOrder });
+  } catch (err) {
+    try {
+      // Roll back only if a transaction was started in this scope
+      if (transactionStarted) {
+        await db.query('ROLLBACK');
+      }
+    } catch (rollbackError) {
+      console.error('Rollback failed', rollbackError);
+    }
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
   }
 };

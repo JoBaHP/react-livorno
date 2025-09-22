@@ -49,6 +49,12 @@ const resources = {
       start_new_order: 'Start New Order',
       back_to_menu: 'Back to Menu',
       order_summary: 'Order Summary',
+      toast: {
+        added: '{{name}}{{size}} added to cart',
+        increment: '{{name}} quantity increased',
+        decrement: '{{name}} quantity decreased',
+        placed: 'Thanks! Your order is on the way.',
+      },
       // Admin/Staff common
       staff_panel_title: 'Staff Panel',
       admin_panel: 'Admin Panel',
@@ -274,6 +280,12 @@ const resources = {
       start_new_order: 'Nova porudžbina',
       back_to_menu: 'Nazad na meni',
       order_summary: 'Pregled porudžbine',
+      toast: {
+        added: '{{name}}{{size}} je dodato u korpu',
+        increment: 'Povećana količina za {{name}}',
+        decrement: 'Smanjena količina za {{name}}',
+        placed: 'Hvala! Vaša porudžbina je prosleđena.',
+      },
       // Admin/Staff common
       staff_panel_title: 'Panel osoblja',
       admin_panel: 'Admin panel',

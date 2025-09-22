@@ -64,7 +64,7 @@ export default function CartView({
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                   <button
-                    onClick={() => updateQuantity(item.cartId, -1)}
+                    onClick={() => updateQuantity(item, -1)}
                     className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600"
                   >
                     <Minus size={14} />
@@ -73,7 +73,7 @@ export default function CartView({
                     {item.quantity}
                   </span>
                   <button
-                    onClick={() => updateQuantity(item.cartId, 1)}
+                    onClick={() => updateQuantity(item, 1)}
                     className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600"
                   >
                     <Plus size={14} />

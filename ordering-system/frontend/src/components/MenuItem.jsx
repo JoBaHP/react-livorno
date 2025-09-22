@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../utils/format';
 
@@ -85,6 +85,18 @@ export default function MenuItem({ item, onCustomize, onAddToCart }) {
                   </div>
                 ))}
               </div>
+            )}
+            {canQuickAddSize && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!item.available) return;
+                  onCustomize();
+                }}
+                className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-amber-500 hover:text-amber-600"
+              >
+                <SlidersHorizontal size={14} /> {t('customize')}
+              </button>
             )}
           </div>
         )}

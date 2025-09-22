@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useApi } from "../ApiProvider";
 import MenuItem from "../components/MenuItem";
 import CartView from "../components/CartView";
@@ -21,6 +21,29 @@ export default function CustomerView({ tableId }) {
   const [openCategory, setOpenCategory] = useState(null);
   const [customizingItem, setCustomizingItem] = useState(null);
   const api = useApi();
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  const showToast = (message) => {
+    setToast({ id: Date.now(), message });
+  };
+
+  useEffect(() => {
+    if (!toast) return () => {};
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 2200);
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+    };
+  }, [toast]);
 
   const { data: menu = [], isLoading: isMenuLoading } = useQuery({
     queryKey: ['menu'],
@@ -57,6 +80,8 @@ export default function CustomerView({ tableId }) {
     if (!item.available) return;
     dispatch(addCartItem({ item, size, selectedOptions }));
     setCustomizingItem(null);
+    const sizeLabel = size?.name ? ` (${size.name})` : '';
+    showToast(t('toast.added', { name: item.name, size: sizeLabel }));
   };
 
   const placeOrder = async (notes, paymentMethod) => {
@@ -66,6 +91,7 @@ export default function CustomerView({ tableId }) {
     const newOrder = await api.placeOrder(cart, tableId, notes, paymentMethod);
     dispatch(setOrder(newOrder));
     dispatch(clearCart());
+    showToast(t('toast.placed'));
     setIsPlacing(false);
   };
 
@@ -73,6 +99,15 @@ export default function CustomerView({ tableId }) {
     setOpenCategory((prevOpenCategory) =>
       prevOpenCategory === category ? null : category
     );
+  };
+
+  const handleQuantityChange = (cartItem, amount) => {
+    dispatch(updateCartQty({ cartId: cartItem.cartId, amount }));
+    if (amount > 0) {
+      showToast(t('toast.increment', { name: cartItem.name }));
+    } else {
+      showToast(t('toast.decrement', { name: cartItem.name }));
+    }
   };
 
   if (!tableId)
@@ -97,6 +132,14 @@ export default function CustomerView({ tableId }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+      {toast && (
+        <div className="fixed top-6 right-6 z-50">
+          <div className="bg-amber-500 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
+            <Plus size={16} className="opacity-80" />
+            <span className="font-medium text-sm">{toast.message}</span>
+          </div>
+        </div>
+      )}
       <div className="lg:col-span-2 space-y-6">
         <div className="text-center lg:text-left">
           <h2 className="text-4xl font-extrabold text-slate-800">{t('menu_title')}</h2>
@@ -151,7 +194,7 @@ export default function CustomerView({ tableId }) {
         <div className="sticky top-24">
           <CartView
             cart={cart}
-            updateQuantity={(cartId, amount) => dispatch(updateCartQty({ cartId, amount }))}
+            updateQuantity={handleQuantityChange}
             total={total}
             placeOrder={placeOrder}
             isLoading={isPlacing}

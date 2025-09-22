@@ -131,19 +131,21 @@ export default function CustomerView({ tableId }) {
 
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
       {toast && (
         <div className="fixed top-6 right-6 z-50">
-          <div className="bg-amber-500 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
-            <Plus size={16} className="opacity-80" />
-            <span className="font-medium text-sm">{toast.message}</span>
+          <div className="bg-[var(--color-golden)] text-[#0c0c0c] px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 font-semibold tracking-wide">
+            <Plus size={18} className="opacity-70" />
+            <span className="text-sm uppercase">{toast.message}</span>
           </div>
         </div>
       )}
       <div className="lg:col-span-2 space-y-6">
         <div className="text-center lg:text-left">
-          <h2 className="text-4xl font-extrabold text-slate-800">{t('menu_title')}</h2>
-          <p className="mt-2 text-lg text-slate-600">
+          <h2 className="text-[46px] leading-[1.1] text-[var(--color-golden)]">
+            {t('menu_title')}
+          </h2>
+          <p className="mt-2 text-base text-[var(--color-muted)]">
             {t('menu_table_text', { tableId })}
           </p>
         </div>
@@ -154,24 +156,24 @@ export default function CustomerView({ tableId }) {
             {categories.map((category) => (
               <div
                 key={category}
-                className="bg-white rounded-xl shadow-sm overflow-hidden"
+                className="bg-[var(--color-panel)]/80 rounded-2xl border border-[var(--color-border)] overflow-hidden shadow-xl shadow-black/20"
               >
                 <button
                   onClick={() => handleCategoryToggle(category)}
-                  className="w-full flex justify-between items-center p-4 hover:bg-slate-50 transition-colors"
+                  className="w-full flex justify-between items-center p-5 hover:bg-white/5 transition-colors"
                 >
-                  <h3 className="text-2xl font-bold text-slate-700">
+                  <h3 className="text-[32px] text-[var(--color-golden)]">
                     {category}
                   </h3>
                   <ChevronDown
-                    className={`text-slate-500 transform transition-transform duration-300 ${
+                    className={`text-[var(--color-golden)]/70 transform transition-transform duration-300 ${
                       openCategory === category ? "rotate-180" : ""
                     }`}
                   />
                 </button>
                 {openCategory === category && (
-                  <div className="p-4 border-t border-slate-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-6 border-t border-[var(--color-border)] bg-black/20 backdrop-blur">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       {menu
                         .filter((item) => item.category === category)
                         .map((item) => (
@@ -191,7 +193,7 @@ export default function CustomerView({ tableId }) {
         )}
       </div>
       <div className="lg:col-span-1" id="cart-panel">
-        <div className="sticky top-24">
+        <div className="sticky top-28">
           <CartView
             cart={cart}
             updateQuantity={handleQuantityChange}

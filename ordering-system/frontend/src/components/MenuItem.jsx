@@ -29,7 +29,7 @@ export default function MenuItem({ item, onCustomize, onAddToCart }) {
 
   return (
     <div
-      className={`bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col transition-all duration-300 hover:shadow-lg ${
+      className={`bg-gradient-to-br from-[#12171d] to-[#151b22] rounded-2xl border border-[var(--color-border)] overflow-hidden flex flex-col transition-all duration-300 hover:shadow-[0_16px_40px_rgba(0,0,0,0.35)] ${
         !item.available ? "opacity-60" : ""
       }`}
     >
@@ -37,20 +37,20 @@ export default function MenuItem({ item, onCustomize, onAddToCart }) {
         <img
           src={item.image_url}
           alt={item.name}
-          className="w-full h-40 object-cover"
+          className="w-full h-44 object-cover"
           onError={(e) => {
             e.target.onerror = null;
             e.target.src = `https://placehold.co/600x400/e2e8f0/94a3b8?text=${encodeURIComponent(t('image_not_found'))}`;
           }}
         />
       )}
-      <div className="p-4 flex flex-col flex-grow">
+      <div className="p-5 flex flex-col flex-grow">
         <div className="flex-grow">
-          <h4 className="text-lg font-bold text-slate-800">{item.name}</h4>
-          <p className="text-sm text-slate-600 mt-1">{item.description}</p>
+          <h4 className="text-2xl text-[var(--color-golden)]">{item.name}</h4>
+          <p className="text-sm text-[var(--color-muted)] mt-1">{item.description}</p>
         </div>
         {hasSizes && (
-          <div className="mt-3">
+          <div className="mt-4">
             {canQuickAddSize ? (
               <div className="flex flex-wrap gap-2">
                 {item.sizes.map((size) => {
@@ -61,7 +61,7 @@ export default function MenuItem({ item, onCustomize, onAddToCart }) {
                       type="button"
                       onClick={() => handleQuickAdd(size)}
                       disabled={!item.available}
-                      className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-sm font-medium text-slate-700 hover:border-amber-400 hover:text-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 rounded-full border border-[rgba(220,202,135,0.35)] px-3 py-1.5 text-sm font-semibold text-[var(--color-golden)] hover:border-[var(--color-golden)] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span>{label}</span>
                       <span className="text-xs text-slate-500">
@@ -72,11 +72,11 @@ export default function MenuItem({ item, onCustomize, onAddToCart }) {
                 })}
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {item.sizes.map((size) => (
                   <div
                     key={`${size?.name}-${size?.price}`}
-                    className="flex items-center justify-between rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                    className="flex items-center justify-between rounded-lg border border-[rgba(220,202,135,0.15)] bg-white/5 px-3 py-2 text-sm text-[var(--color-muted)]"
                   >
                     <span>{size?.name || t('customization.size')}</span>
                     <span className="font-semibold">
@@ -93,7 +93,7 @@ export default function MenuItem({ item, onCustomize, onAddToCart }) {
                   if (!item.available) return;
                   onCustomize();
                 }}
-                className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-amber-500 hover:text-amber-600"
+                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-golden)] hover:text-white"
               >
                 <SlidersHorizontal size={14} /> {t('customize')}
               </button>
@@ -103,7 +103,7 @@ export default function MenuItem({ item, onCustomize, onAddToCart }) {
         {(!hasSizes || hasOptions || !canQuickAddSize) && (
           <div className="flex justify-between items-center mt-4">
             {!hasSizes && (
-              <span className="text-xl font-extrabold text-slate-900">
+              <span className="text-xl font-bold text-[var(--color-golden)]">
                 {primaryPrice}
               </span>
             )}
@@ -111,7 +111,7 @@ export default function MenuItem({ item, onCustomize, onAddToCart }) {
               <button
                 onClick={handlePrimaryClick}
                 disabled={!item.available}
-                className="ml-auto flex items-center gap-2 bg-amber-400 text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                className="ml-auto flex items-center gap-2 bg-[var(--color-golden)] text-[#0c0c0c] px-4 py-2 rounded-lg font-semibold hover:bg-[#f5efdb] transition-colors disabled:bg-slate-500/50 disabled:text-slate-300 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 <Plus size={18} />
                 {hasOptions || hasSizes ? t('customize') : t('add')}

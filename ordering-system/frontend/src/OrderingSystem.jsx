@@ -22,16 +22,18 @@ export default function OrderingSystem() {
   }, [location.search]);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <nav className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-transparent">
+      <header className="sticky top-0 z-40 bg-[#0c0c0c]/95 backdrop-blur border-b border-[rgba(220,202,135,0.15)]">
+        <nav className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
             <img
               src="/livorno-logo.png"
               alt={t('app_title')}
-              className="h-10 w-auto"
+              className="h-12 w-auto drop-shadow-sm"
             />
-            <span className="sr-only">{t('app_title')}</span>
+            <span className="text-[28px] leading-none font-bold text-[var(--color-golden)] tracking-[0.1em] uppercase">
+              {t('app_title')}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <LangButton code="en" label="EN" />
@@ -40,7 +42,7 @@ export default function OrderingSystem() {
           </div>
         </nav>
       </header>
-      <main className="container mx-auto p-4 sm:px-6 lg:px-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <CustomerView tableId={tableId} />
       </main>
     </div>
@@ -53,7 +55,11 @@ function LangButton({ code, label }) {
   return (
     <button
       onClick={() => i18n.changeLanguage(code)}
-      className={`px-2 py-1 rounded-md border ${active ? 'bg-amber-400 text-white border-amber-400' : 'border-slate-400 text-slate-700'}`}
+      className={`px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase transition-all ${
+        active
+          ? 'bg-[var(--color-golden)] text-[#0c0c0c]' 
+          : 'border border-[rgba(220,202,135,0.35)] text-[var(--color-golden)] hover:border-[var(--color-golden)]'
+      }`}
       aria-label={`Switch to ${label}`}
     >
       {label}
@@ -73,9 +79,9 @@ function CartBadge({ count }) {
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }}
     >
-      <ShoppingCart size={22} className="text-slate-700" />
+      <ShoppingCart size={22} className="text-[var(--color-golden)]" />
       <span
-        className="absolute -top-2 -right-2 min-w-5 h-5 px-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full bg-amber-500 text-white"
+        className="absolute -top-2 -right-2 min-w-5 h-5 px-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full bg-[var(--color-golden)] text-[#0c0c0c]"
       >
         {count}
       </span>

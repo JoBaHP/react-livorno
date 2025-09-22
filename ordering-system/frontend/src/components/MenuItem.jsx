@@ -5,15 +5,26 @@ import { formatCurrency } from '../utils/format';
 
 export default function MenuItem({ item, onCustomize, onAddToCart }) {
   const { t } = useTranslation();
-  const hasCustomizations =
-    item?.options?.length > 0 || item?.sizes?.length > 0;
+  const hasSizes = Array.isArray(item?.sizes) && item.sizes.length > 0;
+  const hasOptions = Array.isArray(item?.options) && item.options.length > 0;
+  const canQuickAddSize = hasSizes && !hasOptions;
 
-  const handleClick = () => {
-    if (hasCustomizations) {
+  const primaryPrice = hasSizes
+    ? formatCurrency(parseFloat(item.sizes?.[0]?.price || 0))
+    : formatCurrency(parseFloat(item.price || 0));
+
+  const handlePrimaryClick = () => {
+    if (!item.available) return;
+    if (hasOptions || (hasSizes && !canQuickAddSize)) {
       onCustomize();
     } else {
       onAddToCart(item, null, []);
     }
+  };
+
+  const handleQuickAdd = (size) => {
+    if (!item.available) return;
+    onAddToCart(item, size, []);
   };
 
   return (
@@ -38,19 +49,64 @@ export default function MenuItem({ item, onCustomize, onAddToCart }) {
           <h4 className="text-lg font-bold text-slate-800">{item.name}</h4>
           <p className="text-sm text-slate-600 mt-1">{item.description}</p>
         </div>
-        <div className="flex justify-between items-center mt-4">
-          <span className="text-xl font-extrabold text-slate-900">
-            {formatCurrency(parseFloat(item.price || item.sizes?.[0]?.price || 0))}
-          </span>
-          <button
-            onClick={handleClick}
-            disabled={!item.available}
-            className="flex items-center gap-2 bg-amber-400 text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
-          >
-            <Plus size={18} />
-            {hasCustomizations ? t('customize') : t('add')}
-          </button>
-        </div>
+        {hasSizes && (
+          <div className="mt-3">
+            {canQuickAddSize ? (
+              <div className="flex flex-wrap gap-2">
+                {item.sizes.map((size) => {
+                  const label = size?.name || t('customization.size');
+                  return (
+                    <button
+                      key={`${label}-${size?.price}`}
+                      type="button"
+                      onClick={() => handleQuickAdd(size)}
+                      disabled={!item.available}
+                      className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-sm font-medium text-slate-700 hover:border-amber-400 hover:text-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span>{label}</span>
+                      <span className="text-xs text-slate-500">
+                        {formatCurrency(parseFloat(size?.price || 0))}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {item.sizes.map((size) => (
+                  <div
+                    key={`${size?.name}-${size?.price}`}
+                    className="flex items-center justify-between rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                  >
+                    <span>{size?.name || t('customization.size')}</span>
+                    <span className="font-semibold">
+                      {formatCurrency(parseFloat(size?.price || 0))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {(!hasSizes || hasOptions || !canQuickAddSize) && (
+          <div className="flex justify-between items-center mt-4">
+            {!hasSizes && (
+              <span className="text-xl font-extrabold text-slate-900">
+                {primaryPrice}
+              </span>
+            )}
+            {(hasOptions || !canQuickAddSize) && (
+              <button
+                onClick={handlePrimaryClick}
+                disabled={!item.available}
+                className="ml-auto flex items-center gap-2 bg-amber-400 text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+              >
+                <Plus size={18} />
+                {hasOptions || hasSizes ? t('customize') : t('add')}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -218,6 +218,7 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
   const { t, i18n } = useTranslation();
   const [selectedSize, setSelectedSize] = useState(item.sizes?.[0] || null);
   const [selectedOptions, setSelectedOptions] = useState([]);
+  const [quantity, setQuantity] = useState(1);
 
   const handleOptionToggle = (option) => {
     setSelectedOptions((prev) =>
@@ -228,15 +229,17 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
   };
 
   const handleAddToCart = () => {
-    onAddToCart(item, selectedSize, selectedOptions);
+    for (let i = 0; i < quantity; i += 1) {
+      onAddToCart(item, selectedSize, selectedOptions);
+    }
   };
 
   let currentPrice = selectedSize
     ? parseFloat(selectedSize.price)
     : parseFloat(item.price || 0);
-  selectedOptions.forEach(
-    (opt) => (currentPrice += parseFloat(opt.price || 0))
-  );
+  selectedOptions.forEach((opt) => {
+    currentPrice += parseFloat(opt.price || 0);
+  });
 
   const paidOptions =
     item?.options?.filter((o) => parseFloat(o.price) > 0) || [];
@@ -244,26 +247,40 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
     item?.options?.filter((o) => parseFloat(o.price) === 0) || [];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg max-h-full overflow-y-auto">
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">{item.name}</h2>
-        <p className="text-slate-600 mb-4">{item.description}</p>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur flex justify-center items-center z-50 p-4">
+      <div className="bg-[#0f1318] border border-[var(--color-border)] rounded-3xl shadow-2xl p-7 w-full max-w-xl max-h-full overflow-y-auto text-white">
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <h2 className="text-[34px] text-[var(--color-golden)] leading-tight">{item.name}</h2>
+            <p className="text-sm text-[var(--color-muted)] mt-1">{item.description}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[var(--color-golden)] hover:text-white text-2xl leading-none"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
 
         {item.sizes && (
-          <div className="mb-4">
-            <h3 className="font-semibold text-slate-700 mb-2">{t('customization.size')}</h3>
+          <div className="mb-5">
+            <h3 className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted)] mb-3">
+              {t('customization.size')}
+            </h3>
             <div className="flex gap-2 flex-wrap">
               {item.sizes.map((size) => (
                 <button
                   key={size.name}
                   onClick={() => setSelectedSize(size)}
-                  className={`px-3 py-1 text-sm rounded-full border-2 ${
+                  className={`px-3.5 py-1.5 text-sm rounded-full border ${
                     selectedSize?.name === size.name
-                      ? "bg-amber-400 text-white border-amber-400"
-                      : "bg-white text-slate-700 border-slate-300 hover:border-amber-400"
+                      ? "bg-[var(--color-golden)] text-[#0c0c0c] border-[var(--color-golden)] shadow"
+                      : "bg-transparent text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-golden)]"
                   }`}
                 >
-                  {size.name} - {formatCurrency(parseFloat(size.price), i18n.language)}
+                  {size.name} - {formatCurrency(parseFloat(size.price || 0), i18n.language)}
                 </button>
               ))}
             </div>
@@ -271,66 +288,109 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
         )}
 
         {paidOptions.length > 0 && (
-          <div className="mb-4">
-            <h3 className="font-semibold text-slate-700 mb-2">{t('customization.extras')}</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {paidOptions.map((opt) => (
-                <label
-                  key={opt.id}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    onChange={() => handleOptionToggle(opt)}
-                    className="h-4 w-4 rounded border-slate-300 text-amber-400 focus:ring-amber-400"
-                  />
-                  {opt.name} (+{formatCurrency(parseFloat(opt.price), i18n.language)})
-                </label>
-              ))}
+          <div className="mb-5">
+            <h3 className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted)] mb-3">
+              {t('customize')}
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {paidOptions.map((option) => {
+                const active = selectedOptions.find((o) => o.id === option.id);
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => handleOptionToggle(option)}
+                    className={`px-3 py-1.5 text-sm rounded-full border flex items-center gap-2 ${
+                      active
+                        ? "bg-[var(--color-golden)] text-[#0c0c0c] border-[var(--color-golden)]"
+                        : "bg-transparent text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-golden)]"
+                    }`}
+                  >
+                    <SlidersHorizontal size={14} />
+                    <span>{option.name}</span>
+                    <span className="text-xs">
+                      (+{formatCurrency(parseFloat(option.price || 0), i18n.language)})
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
         {freeOptions.length > 0 && (
-          <div className="mb-4">
-            <h3 className="font-semibold text-slate-700 mb-2">{t('customization.addons_free')}</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {freeOptions.map((opt) => (
-                <label
-                  key={opt.id}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    onChange={() => handleOptionToggle(opt)}
-                    className="h-4 w-4 rounded border-slate-300 text-amber-400 focus:ring-amber-400"
-                  />
-                  {opt.name}
-                </label>
-              ))}
+          <div className="mb-5">
+            <h3 className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted)] mb-3">
+              {t('customization.addons_free')}
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {freeOptions.map((option) => {
+                const active = selectedOptions.find((o) => o.id === option.id);
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => handleOptionToggle(option)}
+                    className={`px-3 py-1.5 text-sm rounded-full border flex items-center gap-2 ${
+                      active
+                        ? "bg-[var(--color-golden)] text-[#0c0c0c] border-[var(--color-golden)]"
+                        : "bg-transparent text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-golden)]"
+                    }`}
+                  >
+                    <SlidersHorizontal size={14} />
+                    <span>{option.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-200">
-          <span className="text-2xl font-bold text-slate-900">{formatCurrency(currentPrice, i18n.language)}</span>
-          <div className="flex gap-3">
+        <div className="flex items-center justify-between mt-6">
+          <div className="flex items-center gap-3">
             <button
-              onClick={onClose}
-              className="bg-slate-200 text-slate-800 px-4 py-2 rounded-lg font-semibold hover:bg-slate-300 transition-colors"
+              type="button"
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              className="p-2 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
+              aria-label={t('cart.decrease')}
             >
-              {t('customization.cancel')}
+              <Minus size={16} />
             </button>
+            <span className="text-lg font-bold text-[var(--color-golden)]">{quantity}</span>
             <button
-              onClick={handleAddToCart}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 flex items-center gap-2"
+              type="button"
+              onClick={() => setQuantity((q) => q + 1)}
+              className="p-2 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
+              aria-label={t('cart.increase')}
             >
-              <Plus size={18} />
-              {t('customization.add_to_order')}
+              <Plus size={16} />
             </button>
           </div>
+          <div className="text-right">
+            <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-muted)]">
+              {t('total')}
+            </p>
+            <p className="text-2xl font-bold text-white">
+              {formatCurrency(currentPrice * quantity, i18n.language)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-white/10"
+          >
+            {t('customization.cancel')}
+          </button>
+          <button
+            onClick={handleAddToCart}
+            className="px-4 py-2 rounded-lg bg-[var(--color-golden)] text-[#0c0c0c] font-semibold flex items-center gap-2 hover:bg-[#f5efdb]"
+          >
+            <Check size={16} />
+            {t('customization.add_to_order')}
+          </button>
         </div>
       </div>
     </div>
   );
 }
+

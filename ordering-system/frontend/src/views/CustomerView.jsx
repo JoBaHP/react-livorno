@@ -3,15 +3,29 @@ import { useApi } from "../ApiProvider";
 import MenuItem from "../components/MenuItem";
 import CartView from "../components/CartView";
 import OrderStatusDisplay from "../components/OrderStatusDisplay";
-import { ChevronDown, Plus } from "lucide-react";
-import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '../utils/format';
+import {
+  ChevronDown,
+  Plus,
+  Minus,
+  Check,
+  SlidersHorizontal,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { formatCurrency } from "../utils/format";
 import { playNotificationSound } from "../audio";
-import { useQuery } from '@tanstack/react-query';
-import { useDispatch, useSelector } from 'react-redux';
-import { addItem as addCartItem, updateQuantity as updateCartQty, clear as clearCart } from '../store/cartSlice';
-import { selectCartItems, selectCartTotal, selectCurrentOrder } from '../store';
-import { setOrder, clearOrder, updateOrder as updateOrderAction } from '../store/orderSlice';
+import { useQuery } from "@tanstack/react-query";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  addItem as addCartItem,
+  updateQuantity as updateCartQty,
+  clear as clearCart,
+} from "../store/cartSlice";
+import { selectCartItems, selectCartTotal, selectCurrentOrder } from "../store";
+import {
+  setOrder,
+  clearOrder,
+  updateOrder as updateOrderAction,
+} from "../store/orderSlice";
 
 export default function CustomerView({ tableId }) {
   const { t, i18n } = useTranslation();
@@ -46,7 +60,7 @@ export default function CustomerView({ tableId }) {
   }, [toast]);
 
   const { data: menu = [], isLoading: isMenuLoading } = useQuery({
-    queryKey: ['menu'],
+    queryKey: ["menu"],
     queryFn: () => api.getMenu(),
   });
   const [isPlacing, setIsPlacing] = useState(false);
@@ -76,12 +90,12 @@ export default function CustomerView({ tableId }) {
     return () => api.socket.off("order_status_update", onStatusUpdate);
   }, [orderStatus, api.socket, dispatch]);
 
-  const handleAddToCart = (item, size, selectedOptions) => {
+  const handleAddToCart = (item, size, selectedOptions, quantity = 1, optionsOnce = false) => {
     if (!item.available) return;
-    dispatch(addCartItem({ item, size, selectedOptions }));
+    dispatch(addCartItem({ item, size, selectedOptions, quantity, optionsOnce }));
     setCustomizingItem(null);
-    const sizeLabel = size?.name ? ` (${size.name})` : '';
-    showToast(t('toast.added', { name: item.name, size: sizeLabel }));
+    const sizeLabel = size?.name ? ` (${size.name})` : "";
+    showToast(t("toast.added", { name: item.name, size: sizeLabel }));
   };
 
   const placeOrder = async (notes, paymentMethod) => {
@@ -91,7 +105,7 @@ export default function CustomerView({ tableId }) {
     const newOrder = await api.placeOrder(cart, tableId, notes, paymentMethod);
     dispatch(setOrder(newOrder));
     dispatch(clearCart());
-    showToast(t('toast.placed'));
+    showToast(t("toast.placed"));
     setIsPlacing(false);
   };
 
@@ -104,9 +118,9 @@ export default function CustomerView({ tableId }) {
   const handleQuantityChange = (cartItem, amount) => {
     dispatch(updateCartQty({ cartId: cartItem.cartId, amount }));
     if (amount > 0) {
-      showToast(t('toast.increment', { name: cartItem.name }));
+      showToast(t("toast.increment", { name: cartItem.name }));
     } else {
-      showToast(t('toast.decrement', { name: cartItem.name }));
+      showToast(t("toast.decrement", { name: cartItem.name }));
     }
   };
 
@@ -114,21 +128,21 @@ export default function CustomerView({ tableId }) {
     return (
       <div className="text-center bg-white p-8 rounded-xl shadow-lg">
         <h2 className="text-3xl font-bold text-red-600 mb-4">
-          {t('no_table_selected')}
+          {t("no_table_selected")}
         </h2>
-        <p className="text-slate-600">
-          {t('scan_qr_prompt')}
-        </p>
+        <p className="text-slate-600">{t("scan_qr_prompt")}</p>
         <p className="text-slate-500 text-sm mt-4">
-          {t('simulate_table_hint')}
+          {t("simulate_table_hint")}
         </p>
       </div>
     );
   if (orderStatus)
     return (
-      <OrderStatusDisplay order={orderStatus} setOrderStatus={() => dispatch(clearOrder())} />
+      <OrderStatusDisplay
+        order={orderStatus}
+        setOrderStatus={() => dispatch(clearOrder())}
+      />
     );
-
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
@@ -143,14 +157,14 @@ export default function CustomerView({ tableId }) {
       <div className="lg:col-span-2 space-y-6">
         <div className="text-center lg:text-left">
           <h2 className="text-[46px] leading-[1.1] text-[var(--color-golden)]">
-            {t('menu_title')}
+            {t("menu_title")}
           </h2>
           <p className="mt-2 text-base text-[var(--color-muted)]">
-            {t('menu_table_text', { tableId })}
+            {t("menu_table_text", { tableId })}
           </p>
         </div>
         {isMenuLoading ? (
-          <p>{t('loading_menu')}</p>
+          <p>{t("loading_menu")}</p>
         ) : (
           <div className="space-y-3">
             {categories.map((category) => (
@@ -216,30 +230,79 @@ export default function CustomerView({ tableId }) {
 
 function CustomizationModal({ item, onAddToCart, onClose }) {
   const { t, i18n } = useTranslation();
-  const [selectedSize, setSelectedSize] = useState(item.sizes?.[0] || null);
   const [selectedOptions, setSelectedOptions] = useState([]);
-  const [quantity, setQuantity] = useState(1);
+  const hasSizes = Array.isArray(item?.sizes) && item.sizes.length > 0;
 
-  const handleOptionToggle = (option) => {
+  const sizeKey = (s, i) => (s?.id ?? s?.name ?? `size_${i}`);
+
+  // Track quantity per size; start at 0 for all
+  const initialQuantities = React.useMemo(() => {
+    const map = {};
+    (item.sizes || []).forEach((s, i) => {
+      map[sizeKey(s, i)] = 0;
+    });
+    return map;
+  }, [item.sizes]);
+  const [sizeQuantities, setSizeQuantities] = useState(initialQuantities);
+  const [baseQuantity, setBaseQuantity] = useState(1);
+
+  const handleOptionToggle = (opt) => {
     setSelectedOptions((prev) =>
-      prev.find((o) => o.id === option.id)
-        ? prev.filter((o) => o.id !== option.id)
-        : [...prev, option]
+      prev.find((o) => o.id === opt.id)
+        ? prev.filter((o) => o.id !== opt.id)
+        : [...prev, opt]
     );
   };
 
-  const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i += 1) {
-      onAddToCart(item, selectedSize, selectedOptions);
-    }
+  const incSize = (size, idx) => {
+    const key = sizeKey(size, idx);
+    setSizeQuantities((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+  };
+  const decSize = (size, idx) => {
+    const key = sizeKey(size, idx);
+    setSizeQuantities((prev) => ({
+      ...prev,
+      [key]: Math.max(0, (prev[key] || 0) - 1),
+    }));
   };
 
-  let currentPrice = selectedSize
-    ? parseFloat(selectedSize.price)
-    : parseFloat(item.price || 0);
-  selectedOptions.forEach((opt) => {
-    currentPrice += parseFloat(opt.price || 0);
-  });
+  // Calculate total
+  const optionsSum = selectedOptions.reduce(
+    (acc, o) => acc + parseFloat(o.price || 0),
+    0
+  );
+  const sizesSubtotal = hasSizes
+    ? (item.sizes || []).reduce((acc, s, i) => {
+        const key = sizeKey(s, i);
+        const qty = sizeQuantities[key] || 0;
+        return acc + qty * parseFloat(s.price || 0);
+      }, 0)
+    : (baseQuantity || 0) * parseFloat(item.price || 0);
+  const anyQtySelected = hasSizes
+    ? (item.sizes || []).some((s, i) => (sizeQuantities[sizeKey(s, i)] || 0) > 0)
+    : (baseQuantity || 0) > 0;
+  const total = sizesSubtotal + (anyQtySelected ? optionsSum : 0);
+
+  const handleAdd = () => {
+    let optionsApplied = false;
+    if (hasSizes) {
+      (item.sizes || []).forEach((s, idx) => {
+        const key = sizeKey(s, idx);
+        const qty = sizeQuantities[key] || 0;
+        if (qty > 0) {
+          const opts = !optionsApplied ? selectedOptions : [];
+          const optionsOnce = !optionsApplied && selectedOptions.length > 0;
+          onAddToCart(item, s, opts, qty, optionsOnce);
+          if (optionsOnce) optionsApplied = true;
+        }
+      });
+    } else {
+      const count = Math.max(0, baseQuantity);
+      if (count > 0) {
+        onAddToCart(item, null, selectedOptions, count, selectedOptions.length > 0);
+      }
+    }
+  };
 
   const paidOptions =
     item?.options?.filter((o) => parseFloat(o.price) > 0) || [];
@@ -251,8 +314,12 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
       <div className="bg-[#0f1318] border border-[var(--color-border)] rounded-3xl shadow-2xl p-7 w-full max-w-xl max-h-full overflow-y-auto text-white">
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h2 className="text-[34px] text-[var(--color-golden)] leading-tight">{item.name}</h2>
-            <p className="text-sm text-[var(--color-muted)] mt-1">{item.description}</p>
+            <h2 className="text-[34px] text-[var(--color-golden)] leading-tight">
+              {item.name}
+            </h2>
+            <p className="text-sm text-[var(--color-muted)] mt-1">
+              {item.description}
+            </p>
           </div>
           <button
             type="button"
@@ -264,112 +331,129 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
           </button>
         </div>
 
-        {item.sizes && (
+        {hasSizes && (
           <div className="mb-5">
             <h3 className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted)] mb-3">
-              {t('customization.size')}
+              {t("customization.size")}
             </h3>
-            <div className="flex gap-2 flex-wrap">
-              {item.sizes.map((size) => (
-                <button
-                  key={size.name}
-                  onClick={() => setSelectedSize(size)}
-                  className={`px-3.5 py-1.5 text-sm rounded-full border ${
-                    selectedSize?.name === size.name
-                      ? "bg-[var(--color-golden)] text-[#0c0c0c] border-[var(--color-golden)] shadow"
-                      : "bg-transparent text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-golden)]"
-                  }`}
-                >
-                  {size.name} - {formatCurrency(parseFloat(size.price || 0), i18n.language)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {paidOptions.length > 0 && (
-          <div className="mb-5">
-            <h3 className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted)] mb-3">
-              {t('customize')}
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {paidOptions.map((option) => {
-                const active = selectedOptions.find((o) => o.id === option.id);
+            <div className="space-y-2">
+              {item.sizes.map((size, idx) => {
+                const key =
+                  sizeKey(size, idx);
+                const qty = sizeQuantities[key] || 0;
                 return (
-                  <button
-                    key={option.id}
-                    onClick={() => handleOptionToggle(option)}
-                    className={`px-3 py-1.5 text-sm rounded-full border flex items-center gap-2 ${
-                      active
-                        ? "bg-[var(--color-golden)] text-[#0c0c0c] border-[var(--color-golden)]"
-                        : "bg-transparent text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-golden)]"
-                    }`}
+                  <div
+                    key={key}
+                    className="flex items-center justify-between rounded-lg border border-[var(--color-border)] bg-white/5 px-3 py-2 text-sm text-[var(--color-muted)]"
                   >
-                    <SlidersHorizontal size={14} />
-                    <span>{option.name}</span>
-                    <span className="text-xs">
-                      (+{formatCurrency(parseFloat(option.price || 0), i18n.language)})
-                    </span>
-                  </button>
+                    <div className="flex items-center gap-3">
+                      <span className="text-white">{size.name}</span>
+                      <span className="text-xs">
+                        {formatCurrency(
+                          parseFloat(size.price || 0),
+                          i18n.language
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => decSize(size, idx)}
+                        className="p-1.5 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
+                        aria-label={t("cart.decrease")}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="w-8 text-center font-bold text-[var(--color-golden)]">
+                        {qty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => incSize(size, idx)}
+                        className="p-1.5 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
+                        aria-label={t("cart.increase")}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
           </div>
         )}
 
-        {freeOptions.length > 0 && (
+        {(paidOptions.length > 0 || freeOptions.length > 0) && (
           <div className="mb-5">
             <h3 className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted)] mb-3">
-              {t('customization.addons_free')}
+              {t("customize")}
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {freeOptions.map((option) => {
-                const active = selectedOptions.find((o) => o.id === option.id);
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[...paidOptions, ...freeOptions].map((opt) => {
+                const checked = !!selectedOptions.find((o) => o.id === opt.id);
                 return (
-                  <button
-                    key={option.id}
-                    onClick={() => handleOptionToggle(option)}
-                    className={`px-3 py-1.5 text-sm rounded-full border flex items-center gap-2 ${
-                      active
-                        ? "bg-[var(--color-golden)] text-[#0c0c0c] border-[var(--color-golden)]"
-                        : "bg-transparent text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-golden)]"
-                    }`}
+                  <label
+                    key={opt.id}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 cursor-pointer"
                   >
-                    <SlidersHorizontal size={14} />
-                    <span>{option.name}</span>
-                  </button>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => handleOptionToggle(opt)}
+                      className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-golden)] focus:ring-[var(--color-golden)] bg-transparent"
+                    />
+                    <span className="flex-1 text-white">{opt.name}</span>
+                    {parseFloat(opt.price) > 0 && (
+                      <span className="text-xs text-[var(--color-muted)]">
+                        +
+                        {formatCurrency(
+                          parseFloat(opt.price || 0),
+                          i18n.language
+                        )}
+                      </span>
+                    )}
+                  </label>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {!hasSizes && (
+          <div className="mb-5">
+            <h3 className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted)] mb-3">
+              {t('quantity')}
+            </h3>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBaseQuantity((q) => Math.max(1, q - 1))}
+                className="p-1.5 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
+                aria-label={t('cart.decrease')}
+              >
+                <Minus size={14} />
+              </button>
+              <span className="w-8 text-center font-bold text-[var(--color-golden)]">{baseQuantity}</span>
+              <button
+                type="button"
+                onClick={() => setBaseQuantity((q) => q + 1)}
+                className="p-1.5 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
+                aria-label={t('cart.increase')}
+              >
+                <Plus size={14} />
+              </button>
             </div>
           </div>
         )}
 
         <div className="flex items-center justify-between mt-6">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="p-2 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
-              aria-label={t('cart.decrease')}
-            >
-              <Minus size={16} />
-            </button>
-            <span className="text-lg font-bold text-[var(--color-golden)]">{quantity}</span>
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => q + 1)}
-              className="p-2 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
-              aria-label={t('cart.increase')}
-            >
-              <Plus size={16} />
-            </button>
-          </div>
+          <div />
           <div className="text-right">
             <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-muted)]">
-              {t('total')}
+              {t("total")}
             </p>
             <p className="text-2xl font-bold text-white">
-              {formatCurrency(currentPrice * quantity, i18n.language)}
+              {formatCurrency(total, i18n.language)}
             </p>
           </div>
         </div>
@@ -379,18 +463,17 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-white/10"
           >
-            {t('customization.cancel')}
+            {t("customization.cancel")}
           </button>
           <button
-            onClick={handleAddToCart}
+            onClick={handleAdd}
             className="px-4 py-2 rounded-lg bg-[var(--color-golden)] text-[#0c0c0c] font-semibold flex items-center gap-2 hover:bg-[#f5efdb]"
           >
             <Check size={16} />
-            {t('customization.add_to_order')}
+            {t("customization.add_to_order")}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

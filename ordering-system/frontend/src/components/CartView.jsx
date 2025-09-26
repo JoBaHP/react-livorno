@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '../utils/format';
+import { useTranslation } from "react-i18next";
+import { formatCurrency } from "../utils/format";
 import {
   Plus,
   Minus,
@@ -30,10 +30,14 @@ export default function CartView({
     <div className="bg-[var(--color-panel)]/85 border border-[var(--color-border)] rounded-3xl shadow-xl shadow-black/30 p-6">
       <div className="flex items-center gap-3 mb-6">
         <ShoppingCart className="text-[var(--color-golden)]" size={26} />
-        <h3 className="text-3xl text-[var(--color-golden)]">{t('your_order')}</h3>
+        <h3 className="text-3xl text-[var(--color-golden)]">
+          {t("your_order")}
+        </h3>
       </div>
       {cart.length === 0 ? (
-        <p className="text-sm text-[var(--color-muted)] text-center py-8 uppercase tracking-[0.3em]">{t('empty_cart')}</p>
+        <p className="text-sm text-[var(--color-muted)] text-center py-8 uppercase tracking-[0.3em]">
+          {t("empty_cart")}
+        </p>
       ) : (
         <>
           <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
@@ -43,7 +47,7 @@ export default function CartView({
                 className="flex justify-between items-start bg-white/5 border border-[var(--color-border)] rounded-2xl px-4 py-3"
               >
                 <div className="flex-grow">
-                  <p className="font-bold text-slate-800">
+                  <p className="font-bold text-slate-300">
                     {item.name}{" "}
                     {item.size && (
                       <span className="text-sm text-slate-500 font-normal">
@@ -86,7 +90,7 @@ export default function CartView({
           </div>
           <div className="pt-4 border-t border-[var(--color-border)] mt-5">
             <div className="flex justify-between items-center text-xl font-bold text-[var(--color-golden)]">
-              <span className="font-heading">{t('total')}</span>
+              <span className="font-heading">{t("total")}</span>
               <span>{formatCurrency(total)}</span>
             </div>
           </div>
@@ -94,29 +98,31 @@ export default function CartView({
           <div className="mt-5 pt-5 border-t border-[var(--color-border)] space-y-4">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-[var(--color-golden)] mb-1">
-                <StickyNote size={16} /> {t('order_notes')}
+                <StickyNote size={16} /> {t("order_notes")}
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder={t('notes_placeholder')}
+                placeholder={t("notes_placeholder")}
                 className="w-full p-3 border border-[var(--color-border)] rounded-xl h-20 text-sm bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-golden)]"
               ></textarea>
             </div>
             <div>
-              <label className="block text-sm font-medium text-[var(--color-golden)] mb-1">{t('payment_method')}</label>
+              <label className="block text-sm font-medium text-[var(--color-golden)] mb-1">
+                {t("payment_method")}
+              </label>
               <div className="flex gap-2">
                 <PaymentButton
                   selected={paymentMethod === "cash"}
                   onClick={() => setPaymentMethod("cash")}
                 >
-                  <DollarSign size={16} /> {t('cash')}
+                  <DollarSign size={16} /> {t("cash")}
                 </PaymentButton>
                 <PaymentButton
                   selected={paymentMethod === "card"}
                   onClick={() => setPaymentMethod("card")}
                 >
-                  <CreditCard size={16} /> {t('card')}
+                  <CreditCard size={16} /> {t("card")}
                 </PaymentButton>
               </div>
             </div>
@@ -128,7 +134,7 @@ export default function CartView({
             className="w-full mt-6 bg-[var(--color-golden)] text-[#0c0c0c] py-3 rounded-xl font-bold text-lg tracking-wide hover:bg-[#f5efdb] transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-slate-500/60 disabled:text-slate-300 disabled:shadow-inner shadow-lg hover:shadow-2xl transform hover:-translate-y-1"
           >
             <Send size={20} />
-            {isLoading ? t('sending') : t('place_order')}
+            {isLoading ? t("sending") : t("place_order")}
           </button>
         </>
       )}

@@ -43,12 +43,15 @@ if (preloaded?.cart) {
 export const selectCartItems = (state) => state.cart.items;
 export const selectCartTotal = createSelector([selectCartItems], (items) =>
   (items || []).reduce((sum, item) => {
+    const qty = parseFloat(item.quantity || 0);
     const base = parseFloat(item.price || 0);
     const optionsTotal = (item.selectedOptions || []).reduce(
       (acc, opt) => acc + parseFloat(opt.price || 0),
       0
     );
-    return sum + (base + optionsTotal) * (item.quantity || 0);
+    const baseSubtotal = base * qty;
+    const optionsSubtotal = (item.optionsOnce ? optionsTotal : optionsTotal * qty);
+    return sum + baseSubtotal + optionsSubtotal;
   }, 0)
 );
 export const selectCurrentOrder = (state) => state.order.current;

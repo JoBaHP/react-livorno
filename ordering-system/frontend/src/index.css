@@ -1,9 +1,6 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@400;500;600;700&family=Open+Sans:wght@300;400;500;600;700&display=swap");
 
 :root {
-  --font-heading: "Cormorant Upright", serif;
-  --font-body: "Open Sans", sans-serif;
   --color-golden: #dcca87;
   --color-black: #0c0c0c;
   --color-panel: #111418;
@@ -12,7 +9,6 @@
 }
 
 body {
-  font-family: var(--font-body);
   background: radial-gradient(circle at top left, rgba(220, 202, 135, 0.12), transparent 45%),
     radial-gradient(circle at bottom right, rgba(220, 202, 135, 0.12), transparent 50%),
     #0c0c0c;
@@ -21,16 +17,4 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: var(--font-heading);
-  color: #f5efdb;
-}
-
-.font-heading {
-  font-family: var(--font-heading);
-}
+.font-heading {}

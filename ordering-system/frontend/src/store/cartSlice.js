@@ -17,19 +17,22 @@ const cartSlice = createSlice({
   initialState,
   reducers: {
     addItem(state, action) {
-      const { item, size, selectedOptions } = action.payload;
+      const { item, size, selectedOptions, quantity = 1, optionsOnce = false } = action.payload;
       const id = cartIdFor(item, size, selectedOptions);
       const existing = state.items.find((it) => it.cartId === id);
       if (existing) {
-        existing.quantity += 1;
+        existing.quantity += quantity;
+        // Preserve optionsOnce if either side has it
+        existing.optionsOnce = existing.optionsOnce || optionsOnce;
       } else {
         state.items.push({
           ...item,
           cartId: id,
-          quantity: 1,
+          quantity,
           price: size ? size.price : item.price,
           size: size ? size.name : null,
           selectedOptions: selectedOptions || [],
+          optionsOnce: optionsOnce || false,
         });
       }
     },
@@ -54,4 +57,3 @@ const cartSlice = createSlice({
 
 export const { addItem, updateQuantity, clear, initFromStorage } = cartSlice.actions;
 export default cartSlice.reducer;
-

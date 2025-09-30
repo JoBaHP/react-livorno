@@ -98,6 +98,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/delivery" element={<OnlineOrderingPage />} />
+            <Route path="/delivery/status" element={<OnlineOrderingPage initialView="status" />} />
             <Route path="/account" element={<AccountPage />} />
           </Routes>
         </QueryClientProvider>

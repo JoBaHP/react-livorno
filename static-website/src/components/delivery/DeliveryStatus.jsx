@@ -47,11 +47,7 @@ const normaliseOptions = (options = []) =>
   options.map((opt) => {
     const price = parseFloat(opt.price || 0);
     const rawQty = Number(opt.quantity);
-    const quantity = Number.isFinite(rawQty)
-      ? rawQty
-      : price > 0
-      ? 1
-      : 0;
+    const quantity = Number.isFinite(rawQty) ? rawQty : price > 0 ? 1 : 0;
     return {
       ...opt,
       price,
@@ -120,7 +116,11 @@ export default function DeliveryStatus({ order }) {
   const StatusIcon = STATUS_META[normalisedStatus]?.icon || Clock;
 
   const itemsWithTotals = useMemo(
-    () => (order?.items || []).map((item) => ({ item, ...calculateLineTotals(item) })),
+    () =>
+      (order?.items || []).map((item) => ({
+        item,
+        ...calculateLineTotals(item),
+      })),
     [order?.items]
   );
 
@@ -129,7 +129,9 @@ export default function DeliveryStatus({ order }) {
     0
   );
 
-  const rawDeliveryFee = parseFloat(order?.delivery_fee || order?.deliveryFee || 0);
+  const rawDeliveryFee = parseFloat(
+    order?.delivery_fee || order?.deliveryFee || 0
+  );
   const hasDeliveryFee = Number.isFinite(rawDeliveryFee) && rawDeliveryFee > 0;
   const deliveryFee = hasDeliveryFee ? rawDeliveryFee : 0;
   const deliveryFeeDisplay = hasDeliveryFee
@@ -163,12 +165,15 @@ export default function DeliveryStatus({ order }) {
                 <StatusIcon size={36} />
               </div>
               <div>
-                <h2 className="headtext__cormorant text-3xl md:text-4xl text-white">
+                <h4 className="headtext__cormorant text-3xl md:text-4xl text-white">
                   {t(`delivery_status.steps.${normalisedStatus}`, {
                     defaultValue: t("delivery_status.steps.pending"),
                   })}
-                </h2>
-                <p className="p__opensans text-sm md:text-base" style={{ color: "var(--color-grey)" }}>
+                </h4>
+                <p
+                  className="p__opensans text-sm md:text-base"
+                  style={{ color: "var(--color-grey)" }}
+                >
                   {t(`delivery_status.messages.${normalisedStatus}`, {
                     minutes: waitTimeDisplay || "…",
                     defaultValue: t("delivery_status.messages.pending", {
@@ -176,7 +181,10 @@ export default function DeliveryStatus({ order }) {
                     }),
                   })}
                 </p>
-                <p className="p__opensans text-xs md:text-sm mt-2" style={{ color: "var(--color-grey)" }}>
+                <p
+                  className="p__opensans text-xs md:text-sm mt-2"
+                  style={{ color: "var(--color-grey)" }}
+                >
                   {t("delivery_status.order_id", { id: order.id })}
                 </p>
               </div>
@@ -197,12 +205,17 @@ export default function DeliveryStatus({ order }) {
               )}
               <div
                 className="p-4 rounded-xl border"
-                style={{ borderColor: "var(--color-golden)", color: "var(--color-golden)" }}
+                style={{
+                  borderColor: "var(--color-golden)",
+                  color: "var(--color-golden)",
+                }}
               >
                 <p className="p__opensans uppercase text-xs tracking-widest">
                   {t("delivery_status.delivery_fee_label")}
                 </p>
-                <p className="headtext__cormorant text-3xl">{deliveryFeeDisplay}</p>
+                <p className="headtext__cormorant text-3xl">
+                  {deliveryFeeDisplay}
+                </p>
               </div>
             </div>
           </header>
@@ -218,7 +231,10 @@ export default function DeliveryStatus({ order }) {
                 const Icon = STATUS_META[key]?.icon || Clock;
                 const active = idx <= statusIndex;
                 return (
-                  <div key={key} className="flex flex-col items-center gap-2 text-center">
+                  <div
+                    key={key}
+                    className="flex flex-col items-center gap-2 text-center"
+                  >
                     <div
                       className="w-10 h-10 flex items-center justify-center rounded-full border"
                       style={{
@@ -232,7 +248,9 @@ export default function DeliveryStatus({ order }) {
                     </div>
                     <span
                       className="p__opensans text-xs uppercase tracking-wide"
-                      style={{ color: active ? statusTone : "var(--color-grey)" }}
+                      style={{
+                        color: active ? statusTone : "var(--color-grey)",
+                      }}
                     >
                       {t(`delivery_status.steps.${key}`)}
                     </span>
@@ -247,58 +265,80 @@ export default function DeliveryStatus({ order }) {
       {order.status !== "completed" && (
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-[#0B0B0B] border border-golden rounded-xl p-6">
-            <h3 className="headtext__cormorant text-2xl text-white mb-4">
+            <h5 className="headtext__cormorant text-2xl text-white mb-4">
               {t("delivery_status.order_summary")}
-            </h3>
-          <ul className="space-y-4">
-            {itemsWithTotals.map(({ item, options, baseLineTotal, optionsLineTotal }, idx) => {
-              const displayOptions = options.filter((opt) =>
-                opt.price > 0 ? opt.quantity > 0 : true
-              );
-              return (
-                <li key={item.cartId || idx} className="p__opensans text-sm md:text-base" style={{ color: "var(--color-grey)" }}>
-                  <div className="flex justify-between gap-4">
-                    <span>
-                      {item.quantity} × {item.name}
-                      {item.size ? ` (${item.size})` : ""}
-                    </span>
-                    <span className="text-white">
-                      {formatCurrency(baseLineTotal + optionsLineTotal, i18n.language)}
-                    </span>
-                  </div>
-                  {displayOptions.length > 0 && (
-                    <ul className="mt-2 space-y-1 text-xs md:text-sm">
-                      {displayOptions.map((opt) => (
-                        <li key={opt.id} className="flex justify-between pl-4 gap-4" style={{ color: "var(--color-grey)" }}>
-                          <span>
-                            • {opt.name}
-                            {opt.price > 0 && opt.quantity > 0
-                              ? ` × ${opt.quantity}`
-                              : ""}
-                          </span>
-                          {opt.price > 0 && opt.quantity > 0 && (
-                            <span className="text-white">
-                              {formatCurrency(opt.price * opt.quantity, i18n.language)}
-                            </span>
+            </h5>
+            <ul className="space-y-4">
+              {itemsWithTotals.map(
+                ({ item, options, baseLineTotal, optionsLineTotal }, idx) => {
+                  const displayOptions = options.filter((opt) =>
+                    opt.price > 0 ? opt.quantity > 0 : true
+                  );
+                  return (
+                    <li
+                      key={item.cartId || idx}
+                      className="p__opensans text-sm md:text-base"
+                      style={{ color: "var(--color-grey)" }}
+                    >
+                      <div className="flex justify-between gap-4">
+                        <span>
+                          {item.quantity} × {item.name}
+                          {item.size ? ` (${item.size})` : ""}
+                        </span>
+                        <span className="text-white">
+                          {formatCurrency(
+                            baseLineTotal + optionsLineTotal,
+                            i18n.language
                           )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                        </span>
+                      </div>
+                      {displayOptions.length > 0 && (
+                        <ul className="mt-2 space-y-1 text-xs md:text-sm">
+                          {displayOptions.map((opt) => (
+                            <li
+                              key={opt.id}
+                              className="flex justify-between pl-4 gap-4"
+                              style={{ color: "var(--color-grey)" }}
+                            >
+                              <span>
+                                • {opt.name}
+                                {opt.price > 0 && opt.quantity > 0
+                                  ? ` × ${opt.quantity}`
+                                  : ""}
+                              </span>
+                              {opt.price > 0 && opt.quantity > 0 && (
+                                <span className="text-white">
+                                  {formatCurrency(
+                                    opt.price * opt.quantity,
+                                    i18n.language
+                                  )}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                }
+              )}
+            </ul>
           </div>
           <div className="bg-[#0B0B0B] border border-golden rounded-xl p-6 flex flex-col gap-4">
             <div>
-              <p className="p__opensans text-sm uppercase tracking-widest" style={{ color: "var(--color-grey)" }}>
+              <p
+                className="p__opensans text-sm uppercase tracking-widest"
+                style={{ color: "var(--color-grey)" }}
+              >
                 {t("delivery_status.delivery_address")}
               </p>
               <p className="p__opensans text-base text-white mt-1">
                 {order.customer_address}
               </p>
-              <div className="grid grid-cols-2 gap-3 text-sm mt-4" style={{ color: "var(--color-grey)" }}>
+              <div
+                className="grid grid-cols-2 gap-3 text-sm mt-4"
+                style={{ color: "var(--color-grey)" }}
+              >
                 {order.customer_name && (
                   <div>
                     <span className="block uppercase text-xs tracking-widest">
@@ -319,31 +359,59 @@ export default function DeliveryStatus({ order }) {
             </div>
 
             <div className="mt-auto space-y-2">
-              <div className="flex justify-between p__opensans text-sm" style={{ color: "var(--color-grey)" }}>
+              <div
+                className="flex justify-between p__opensans text-sm"
+                style={{ color: "var(--color-grey)" }}
+              >
                 <span>{t("delivery_status.items_total")}</span>
                 <span className="text-white">
                   {formatCurrency(itemsSubtotal, i18n.language)}
                 </span>
               </div>
-              <div className="flex justify-between p__opensans text-sm" style={{ color: "var(--color-grey)" }}>
+              <div
+                className="flex justify-between p__opensans text-sm"
+                style={{ color: "var(--color-grey)" }}
+              >
                 <span>{t("delivery_status.delivery_fee")}</span>
-                <span className="text-white">{hasDeliveryFee ? formatCurrency(deliveryFee, i18n.language) : t("delivery_status.delivery_fee_pending")}</span>
+                <span className="text-white">
+                  {hasDeliveryFee
+                    ? formatCurrency(deliveryFee, i18n.language)
+                    : t("delivery_status.delivery_fee_pending")}
+                </span>
               </div>
               <div className="flex justify-between items-center border-t border-golden pt-3 mt-4">
                 <span className="headtext__cormorant text-2xl text-white">
                   {t("delivery_status.total")}
                 </span>
-                <span className="headtext__cormorant text-3xl" style={{ color: statusTone }}>
+                <span
+                  className="headtext__cormorant text-3xl"
+                  style={{ color: statusTone }}
+                >
                   {formatCurrency(total, i18n.language)}
                 </span>
               </div>
               {paymentMethod && (
-                <p className="p__opensans text-xs uppercase tracking-widest" style={{ color: "var(--color-grey)" }}>
+                <p
+                  className="p__opensans text-xs uppercase tracking-widest"
+                  style={{ color: "var(--color-grey)" }}
+                >
                   {t("delivery_status.payment", { method: paymentMethod })}
                 </p>
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {order.status === 'declined' && (
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={() => { try { localStorage.removeItem(`delivery_feedback_${order.id}`); } catch {} navigate('/delivery'); }}
+            className="custom__button"
+          >
+            {t('back_to_menu')}
+          </button>
         </div>
       )}
 
@@ -379,9 +447,9 @@ export default function DeliveryStatus({ order }) {
               className="space-y-4"
             >
               <div>
-                <h3 className="headtext__cormorant text-2xl text-white">
+                <h5 className="headtext__cormorant text-2xl text-white">
                   {t("delivery_feedback.title")}
-                </h3>
+                </h5>
                 <p
                   className="p__opensans text-sm mt-1"
                   style={{ color: "var(--color-grey)" }}
@@ -434,7 +502,9 @@ export default function DeliveryStatus({ order }) {
                 />
               </div>
               {feedbackError && (
-                <p className="p__opensans text-sm text-red-400">{feedbackError}</p>
+                <p className="p__opensans text-sm text-red-400">
+                  {feedbackError}
+                </p>
               )}
               <button
                 type="submit"

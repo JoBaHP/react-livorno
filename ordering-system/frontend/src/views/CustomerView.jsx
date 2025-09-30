@@ -3,13 +3,8 @@ import { useApi } from "../ApiProvider";
 import MenuItem from "../components/MenuItem";
 import CartView from "../components/CartView";
 import OrderStatusDisplay from "../components/OrderStatusDisplay";
-import {
-  ChevronDown,
-  Plus,
-  Minus,
-  Check,
-  SlidersHorizontal,
-} from "lucide-react";
+import { ChevronDown, Plus, Minus, Check, SlidersHorizontal } from "lucide-react";
+import { getParentIcon } from "../utils/parentIcons";
 import { useTranslation } from "react-i18next";
 import { formatCurrency } from "../utils/format";
 import { playNotificationSound } from "../audio";
@@ -21,17 +16,26 @@ import {
   clear as clearCart,
 } from "../store/cartSlice";
 import { selectCartItems, selectCartTotal, selectCurrentOrder } from "../store";
+// Parent groups are dynamic via backend categories; we only localize labels here.
 import {
   setOrder,
-  clearOrder,
   updateOrder as updateOrderAction,
 } from "../store/orderSlice";
 
-export default function CustomerView({ tableId }) {
-  const { t, i18n } = useTranslation();
+export default function CustomerView({
+  tableId,
+  showStatus = true,
+  onHideStatus,
+  onShowStatus,
+  activeOrders = [],
+  onActiveOrderUpdate,
+  onActiveOrderClear,
+}) {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const cart = useSelector(selectCartItems);
-  const orderStatus = useSelector(selectCurrentOrder);
+  const orderStatusFromStore = useSelector(selectCurrentOrder);
+  const [openParent, setOpenParent] = useState(null);
   const [openCategory, setOpenCategory] = useState(null);
   const [customizingItem, setCustomizingItem] = useState(null);
   const api = useApi();
@@ -63,8 +67,14 @@ export default function CustomerView({ tableId }) {
     queryKey: ["menu"],
     queryFn: () => api.getMenu(),
   });
+  const { data: categoriesInfo = [] } = useQuery({
+    queryKey: ["menu-categories"],
+    queryFn: () => api.getMenuCategories(),
+  });
   const [isPlacing, setIsPlacing] = useState(false);
   const total = useSelector(selectCartTotal);
+  const hasActiveOrders = activeOrders.length > 0;
+  const primaryOrder = hasActiveOrders ? activeOrders[0] : orderStatusFromStore;
 
   const categoryOrder = ["Pizzas", "Pasta", "Salads", "Desserts", "Drinks"];
   const categories = [...new Set(menu.map((item) => item.category))].sort(
@@ -77,22 +87,61 @@ export default function CustomerView({ tableId }) {
     }
   );
 
+  // Derive parent groups dynamically from server categories
+  const parentKeys = React.useMemo(() => {
+    const set = new Set();
+    (categoriesInfo || []).forEach((c) => set.add(c.parentKey || "food"));
+    if (set.size === 0) {
+      set.add("food");
+      set.add("drinks");
+    }
+    return Array.from(set);
+  }, [categoriesInfo]);
+  const parentGroupsFromServer = parentKeys.map((k) => ({
+    key: k,
+    label: t(`category_parent.${k}`, k.charAt(0).toUpperCase() + k.slice(1)),
+  }));
+  const categoryToParent = new Map(
+    (categoriesInfo || []).map((c) => [c.name, c.parentKey || "food"])
+  );
+  const groupedCategories = parentGroupsFromServer.map((pg) => ({
+    key: pg.key,
+    label: pg.label,
+    categories: categories.filter(
+      (cat) => (categoryToParent.get(cat) || "food") === pg.key
+    ),
+  }));
+
   // Menu is now loaded via React Query
 
   useEffect(() => {
-    if (!orderStatus?.id) return;
-    const onStatusUpdate = (updatedOrder) => {
-      if (updatedOrder.id === orderStatus.id) {
+    const handleStatusUpdate = (updatedOrder) => {
+      if (!updatedOrder?.id) return;
+      if (
+        orderStatusFromStore?.id &&
+        updatedOrder.id === orderStatusFromStore.id
+      ) {
         dispatch(updateOrderAction(updatedOrder));
       }
+      if (typeof onActiveOrderUpdate === "function") {
+        onActiveOrderUpdate(updatedOrder);
+      }
     };
-    api.socket.on("order_status_update", onStatusUpdate);
-    return () => api.socket.off("order_status_update", onStatusUpdate);
-  }, [orderStatus, api.socket, dispatch]);
+    api.socket.on("order_status_update", handleStatusUpdate);
+    return () => api.socket.off("order_status_update", handleStatusUpdate);
+  }, [api.socket, dispatch, onActiveOrderUpdate, orderStatusFromStore?.id]);
 
-  const handleAddToCart = (item, size, selectedOptions, quantity = 1, optionsOnce = false) => {
+  const handleAddToCart = (
+    item,
+    size,
+    selectedOptions,
+    quantity = 1,
+    optionsOnce = false
+  ) => {
     if (!item.available) return;
-    dispatch(addCartItem({ item, size, selectedOptions, quantity, optionsOnce }));
+    dispatch(
+      addCartItem({ item, size, selectedOptions, quantity, optionsOnce })
+    );
     setCustomizingItem(null);
     const sizeLabel = size?.name ? ` (${size.name})` : "";
     showToast(t("toast.added", { name: item.name, size: sizeLabel }));
@@ -105,6 +154,9 @@ export default function CustomerView({ tableId }) {
     const newOrder = await api.placeOrder(cart, tableId, notes, paymentMethod);
     dispatch(setOrder(newOrder));
     dispatch(clearCart());
+    if (typeof onActiveOrderUpdate === "function") {
+      onActiveOrderUpdate(newOrder);
+    }
     showToast(t("toast.placed"));
     setIsPlacing(false);
   };
@@ -136,11 +188,43 @@ export default function CustomerView({ tableId }) {
         </p>
       </div>
     );
-  if (orderStatus)
+  if (showStatus && hasActiveOrders)
+    return (
+      <div className="space-y-8">
+        {activeOrders.map((order) => (
+          <OrderStatusDisplay
+            key={order.id}
+            order={order}
+            setOrderStatus={() => {
+              if (typeof onActiveOrderClear === "function") {
+                onActiveOrderClear(order.id);
+              }
+            }}
+            onBackToMenu={onHideStatus}
+            onFeedbackSubmitted={(id) => {
+              if (typeof onActiveOrderClear === "function") {
+                onActiveOrderClear(id);
+              }
+            }}
+          />
+        ))}
+      </div>
+    );
+  if (showStatus && primaryOrder)
     return (
       <OrderStatusDisplay
-        order={orderStatus}
-        setOrderStatus={() => dispatch(clearOrder())}
+        order={primaryOrder}
+        setOrderStatus={() => {
+          if (typeof onActiveOrderClear === "function" && primaryOrder?.id) {
+            onActiveOrderClear(primaryOrder.id);
+          }
+        }}
+        onBackToMenu={onHideStatus}
+        onFeedbackSubmitted={(id) => {
+          if (typeof onActiveOrderClear === "function") {
+            onActiveOrderClear(id);
+          }
+        }}
       />
     );
 
@@ -155,6 +239,23 @@ export default function CustomerView({ tableId }) {
         </div>
       )}
       <div className="lg:col-span-2 space-y-6">
+        {primaryOrder && !showStatus && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-amber-100 border border-amber-300 text-amber-900 px-4 py-3 rounded-lg">
+            <span className="text-sm font-semibold">
+              {t('status.waiting')} – {t('order_id', { id: primaryOrder.id })}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (onShowStatus) onShowStatus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="px-3 py-1 text-xs font-bold rounded-md bg-amber-500 text-white shadow hover:bg-amber-600"
+            >
+              {t('view_order', 'View status')}
+            </button>
+          </div>
+        )}
         <div className="text-center lg:text-left">
           <h2 className="text-[46px] leading-[1.1] text-[var(--color-golden)]">
             {t("menu_title")}
@@ -166,43 +267,76 @@ export default function CustomerView({ tableId }) {
         {isMenuLoading ? (
           <p>{t("loading_menu")}</p>
         ) : (
-          <div className="space-y-3">
-            {categories.map((category) => (
-              <div
-                key={category}
-                className="bg-[var(--color-panel)]/80 rounded-2xl border border-[var(--color-border)] overflow-hidden shadow-xl shadow-black/20"
-              >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {groupedCategories.map(({ key, label }) => (
                 <button
-                  onClick={() => handleCategoryToggle(category)}
-                  className="w-full flex justify-between items-center p-5 hover:bg-white/5 transition-colors"
+                  key={key}
+                  onClick={() => {
+                    setOpenParent((prev) => (prev === key ? null : key));
+                    setOpenCategory(null);
+                  }}
+                  className={`flex items-center justify-between rounded-xl border border-[var(--color-border)] px-4 py-3 bg-white/5 hover:bg-white/10 transition-colors ${
+                    openParent === key ? 'ring-1 ring-[var(--color-golden)]' : ''
+                  }`}
                 >
-                  <h3 className="text-[32px] text-[var(--color-golden)]">
-                    {category}
-                  </h3>
+                  <span className="flex items-center gap-2 text-[var(--color-golden)] font-semibold">
+                    {(() => { const Icon = getParentIcon(key); return <Icon size={18} />; })()}
+                    {label}
+                  </span>
                   <ChevronDown
-                    className={`text-[var(--color-golden)]/70 transform transition-transform duration-300 ${
-                      openCategory === category ? "rotate-180" : ""
+                    className={`text-[var(--color-golden)]/80 transform transition-transform duration-300 ${
+                      openParent === key ? 'rotate-180' : ''
                     }`}
                   />
                 </button>
-                {openCategory === category && (
-                  <div className="p-6 border-t border-[var(--color-border)] bg-black/20 backdrop-blur">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      {menu
-                        .filter((item) => item.category === category)
-                        .map((item) => (
-                          <MenuItem
-                            key={item.id}
-                            item={item}
-                            onCustomize={() => setCustomizingItem(item)}
-                            onAddToCart={handleAddToCart}
+              ))}
+            </div>
+
+            {openParent && (
+              <div className="mt-2 space-y-3">
+                {(groupedCategories.find((g) => g.key === openParent)?.categories || []).length === 0 ? (
+                  <p className="text-sm text-[var(--color-muted)]">{t('no_items')}</p>
+                ) : (
+                  groupedCategories
+                    .find((g) => g.key === openParent)
+                    .categories.map((category) => (
+                      <div
+                        key={category}
+                        className="bg-black/10 rounded-xl border border-[var(--color-border)] overflow-hidden"
+                      >
+                        <button
+                          onClick={() => handleCategoryToggle(category)}
+                          className="w-full flex justify-between items-center p-4 hover:bg-white/5 transition-colors"
+                        >
+                          <h3 className="text-[20px] text-[var(--color-golden)]">{category}</h3>
+                          <ChevronDown
+                            className={`text-[var(--color-golden)]/70 transform transition-transform duration-300 ${
+                              openCategory === category ? 'rotate-180' : ''
+                            }`}
                           />
-                        ))}
-                    </div>
-                  </div>
+                        </button>
+                        {openCategory === category && (
+                          <div className="p-4 border-t border-[var(--color-border)]">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                              {menu
+                                .filter((item) => item.category === category)
+                                .map((item) => (
+                                  <MenuItem
+                                    key={item.id}
+                                    item={item}
+                                    onCustomize={() => setCustomizingItem(item)}
+                                    onAddToCart={handleAddToCart}
+                                  />
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
                 )}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -233,7 +367,7 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
   const [selectedOptions, setSelectedOptions] = useState([]);
   const hasSizes = Array.isArray(item?.sizes) && item.sizes.length > 0;
 
-  const sizeKey = (s, i) => (s?.id ?? s?.name ?? `size_${i}`);
+  const sizeKey = (s, i) => s?.id ?? s?.name ?? `size_${i}`;
 
   // Track quantity per size; start at 0 for all
   const initialQuantities = React.useMemo(() => {
@@ -279,7 +413,9 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
       }, 0)
     : (baseQuantity || 0) * parseFloat(item.price || 0);
   const anyQtySelected = hasSizes
-    ? (item.sizes || []).some((s, i) => (sizeQuantities[sizeKey(s, i)] || 0) > 0)
+    ? (item.sizes || []).some(
+        (s, i) => (sizeQuantities[sizeKey(s, i)] || 0) > 0
+      )
     : (baseQuantity || 0) > 0;
   const total = sizesSubtotal + (anyQtySelected ? optionsSum : 0);
 
@@ -290,16 +426,27 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
         const key = sizeKey(s, idx);
         const qty = sizeQuantities[key] || 0;
         if (qty > 0) {
-          const opts = !optionsApplied ? selectedOptions : [];
+          const applyOptions = !optionsApplied ? selectedOptions : [];
           const optionsOnce = !optionsApplied && selectedOptions.length > 0;
-          onAddToCart(item, s, opts, qty, optionsOnce);
+          // If options should be applied once for this size selection,
+          // encode option.quantity so backend totals it once across the whole line.
+          const optsWithQty = (applyOptions || []).map((opt) => ({
+            ...opt,
+            quantity: optionsOnce && qty > 0 ? 1 / qty : 1,
+          }));
+          onAddToCart(item, s, optsWithQty, qty, optionsOnce);
           if (optionsOnce) optionsApplied = true;
         }
       });
     } else {
       const count = Math.max(0, baseQuantity);
       if (count > 0) {
-        onAddToCart(item, null, selectedOptions, count, selectedOptions.length > 0);
+        const optionsOnce = selectedOptions.length > 0;
+        const optsWithQty = (selectedOptions || []).map((opt) => ({
+          ...opt,
+          quantity: optionsOnce && count > 0 ? 1 / count : 1,
+        }));
+        onAddToCart(item, null, optsWithQty, count, optionsOnce);
       }
     }
   };
@@ -338,8 +485,7 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
             </h3>
             <div className="space-y-2">
               {item.sizes.map((size, idx) => {
-                const key =
-                  sizeKey(size, idx);
+                const key = sizeKey(size, idx);
                 const qty = sizeQuantities[key] || 0;
                 return (
                   <div
@@ -422,23 +568,25 @@ function CustomizationModal({ item, onAddToCart, onClose }) {
         {!hasSizes && (
           <div className="mb-5">
             <h3 className="text-sm uppercase tracking-[0.3em] text-[var(--color-muted)] mb-3">
-              {t('quantity')}
+              {t("quantity")}
             </h3>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setBaseQuantity((q) => Math.max(1, q - 1))}
                 className="p-1.5 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
-                aria-label={t('cart.decrease')}
+                aria-label={t("cart.decrease")}
               >
                 <Minus size={14} />
               </button>
-              <span className="w-8 text-center font-bold text-[var(--color-golden)]">{baseQuantity}</span>
+              <span className="w-8 text-center font-bold text-[var(--color-golden)]">
+                {baseQuantity}
+              </span>
               <button
                 type="button"
                 onClick={() => setBaseQuantity((q) => q + 1)}
                 className="p-1.5 rounded-full border border-[var(--color-border)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
-                aria-label={t('cart.increase')}
+                aria-label={t("cart.increase")}
               >
                 <Plus size={14} />
               </button>

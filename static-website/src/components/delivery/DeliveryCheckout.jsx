@@ -86,15 +86,18 @@ export default function DeliveryCheckout({ cart, onPlaceOrder, onBackToMenu, upd
   };
 
   const subtotal = cart.reduce((sum, item) => {
-    const baseItemTotal = parseFloat(item.price || 0) * (item.quantity || 0);
-    const perUnitOptions = item.selectedOptions
-      ? item.selectedOptions.reduce((optionSum, opt) => {
-          const optionPrice = parseFloat(opt.price || 0);
-          const optionQuantity = opt.quantity || 0;
-          return optionSum + optionPrice * optionQuantity;
+    const qty = Number(item.quantity) || 0;
+    const baseItemTotal = (Number(item.price) || 0) * qty;
+    // Option quantities in this checkout are tracked for the entire line, not per-unit.
+    // So do NOT multiply by the line quantity again.
+    const optionsTotal = Array.isArray(item.selectedOptions)
+      ? item.selectedOptions.reduce((acc, opt) => {
+          const price = Number(opt.price) || 0;
+          const optQty = Number(opt.quantity) || 0;
+          if (price <= 0 || optQty <= 0) return acc;
+          return acc + price * optQty;
         }, 0)
       : 0;
-    const optionsTotal = perUnitOptions * (item.quantity || 1);
     return sum + baseItemTotal + optionsTotal;
   }, 0);
 

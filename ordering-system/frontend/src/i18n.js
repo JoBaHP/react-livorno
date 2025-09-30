@@ -12,6 +12,7 @@ const resources = {
       image_not_found: 'Image Not Found',
       // CartView
       your_order: 'Your Order',
+      view_order: 'View Status',
       empty_cart: 'Your cart is empty.',
       total: 'Total',
       order_notes: 'Order Notes',
@@ -232,6 +233,11 @@ const resources = {
         qr_alt: 'QR Code for Table {{number}}',
         print: 'Print',
       },
+      // Parent category labels
+      category_parent: {
+        food: 'Food',
+        drinks: 'Drinks',
+      },
     },
   },
   sr: {
@@ -243,6 +249,7 @@ const resources = {
       image_not_found: 'Slika nije pronađena',
       // CartView
       your_order: 'Vaša porudžbina',
+      view_order: 'Pogledaj status',
       empty_cart: 'Vaša korpa je prazna.',
       total: 'Ukupno',
       order_notes: 'Napomene za porudžbinu',
@@ -462,6 +469,11 @@ const resources = {
         table_label: 'Sto {{number}}',
         qr_alt: 'QR kod za sto {{number}}',
         print: 'Štampaj',
+      },
+      // Parent category labels
+      category_parent: {
+        food: 'Hrana',
+        drinks: 'Piće',
       },
     },
   },

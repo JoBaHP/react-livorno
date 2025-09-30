@@ -12,8 +12,24 @@ function loadState() {
     if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
       return { cart: parsed };
     }
-  } catch {}
+  } catch (err) {
+    console.warn('Failed to load cart_state from localStorage', err);
+  }
   return undefined;
+}
+
+function loadActiveOrder() {
+  try {
+    const raw = localStorage.getItem('active_table_order');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.id && parsed.status && parsed.status !== 'completed' && parsed.status !== 'declined') {
+      return parsed;
+    }
+  } catch (err) {
+    console.warn('Failed to load active_table_order from localStorage', err);
+  }
+  return null;
 }
 
 export const store = configureStore({
@@ -22,7 +38,7 @@ export const store = configureStore({
     order: orderReducer,
     auth: authReducer,
   },
-  preloadedState: loadState(),
+  preloadedState: { ...(loadState() || {}), order: { current: loadActiveOrder() } },
   devTools: true,
 });
 
@@ -31,7 +47,15 @@ store.subscribe(() => {
   try {
     const state = store.getState();
     localStorage.setItem('cart_state', JSON.stringify(state.cart));
-  } catch {}
+    const current = state.order?.current;
+    if (current && current.status !== 'completed' && current.status !== 'declined') {
+      localStorage.setItem('active_table_order', JSON.stringify(current));
+    } else {
+      localStorage.removeItem('active_table_order');
+    }
+  } catch (err) {
+    console.warn('Failed to persist order/cart state', err);
+  }
 });
 
 // If there was no preloadedState but localStorage has data, ensure slice gets it

@@ -28,6 +28,11 @@ export const ApiProvider = ({ children }) => {
       return response.json();
     },
 
+    getMenuCategories: async () => {
+      const response = await fetch(`${API_URL}/api/menu/categories`, withCreds());
+      return response.json();
+    },
+
     getAllStreets: async (fetchAll = false) => {
       const url = fetchAll
         ? `${API_URL}/api/streets?all=true`

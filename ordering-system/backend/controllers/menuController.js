@@ -9,6 +9,10 @@ async function ensureCategoryTableExists() {
     name VARCHAR(255) UNIQUE NOT NULL,
     sort_order INT NOT NULL
   )`);
+  // Ensure parent_key column exists for grouping (food/drinks)
+  await db.query(
+    "ALTER TABLE IF EXISTS menu_categories ADD COLUMN IF NOT EXISTS parent_key VARCHAR(32) NOT NULL DEFAULT 'food'"
+  );
   categoryTableChecked = true;
 }
 
@@ -74,7 +78,7 @@ exports.getMenu = async (req, res) => {
     let total = null;
     let totalPages = 1;
     let paginationParams = [];
-    const baseFromClause = `FROM menu_items
+  const baseFromClause = `FROM menu_items
     LEFT JOIN menu_categories mc ON menu_items.category = mc.name`;
     let orderClause = "ORDER BY menu_items.id ASC";
 
@@ -97,7 +101,7 @@ exports.getMenu = async (req, res) => {
       paginationParams = [limit, offset];
     }
 
-    const menuQuery = `SELECT menu_items.*, mc.sort_order ${baseFromClause} ${whereClause} ${orderClause}`;
+    const menuQuery = `SELECT menu_items.*, mc.sort_order, mc.parent_key ${baseFromClause} ${whereClause} ${orderClause}`;
     const menuQueryParams = params.slice();
     if (isPaged) {
       const limitPlaceholder = params.length + 1;
@@ -118,11 +122,12 @@ exports.getMenu = async (req, res) => {
       );
 
       const categoriesResult = await db.query(
-        "SELECT name, sort_order FROM menu_categories ORDER BY sort_order ASC, name ASC"
+        "SELECT name, sort_order, parent_key FROM menu_categories ORDER BY sort_order ASC, name ASC"
       );
       const categories = categoriesResult.rows.map((row) => ({
         name: row.name,
         sortOrder: row.sort_order,
+        parentKey: row.parent_key,
       }));
       const uncategorizedResult = await db.query(
         "SELECT EXISTS (SELECT 1 FROM menu_items WHERE category IS NULL) AS has_uncategorized"
@@ -315,5 +320,46 @@ exports.reorderCategories = async (req, res) => {
     }
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Return list of categories with parent and sort order
+exports.getCategories = async (req, res) => {
+  try {
+    await syncCategoriesFromMenuItems();
+    const { rows } = await db.query(
+      "SELECT name, sort_order, parent_key FROM menu_categories ORDER BY sort_order ASC, name ASC"
+    );
+    res.json(rows.map((r) => ({ name: r.name, sortOrder: r.sort_order, parentKey: r.parent_key })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Bulk update of category parent assignments
+exports.updateCategoryParents = async (req, res) => {
+  try {
+    const { assignments } = req.body || {};
+    if (!Array.isArray(assignments)) {
+      return res.status(400).json({ message: 'Invalid payload' });
+    }
+    await ensureCategoryTableExists();
+    await db.query('BEGIN');
+    for (const entry of assignments) {
+      const name = typeof entry?.name === 'string' ? entry.name : null;
+      const parent = typeof entry?.parentKey === 'string' ? entry.parentKey : null;
+      if (!name || !parent) continue; // skip invalid
+      // eslint-disable-next-line no-await-in-loop
+      await ensureCategoryEntry(name);
+      // eslint-disable-next-line no-await-in-loop
+      await db.query('UPDATE menu_categories SET parent_key = $1 WHERE name = $2', [parent, name]);
+    }
+    await db.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    try { await db.query('ROLLBACK'); } catch {}
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };

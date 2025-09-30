@@ -19,7 +19,9 @@ export default function AdminMenu() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [categorySortAsc, setCategorySortAsc] = useState(true);
   const [isReorderOpen, setIsReorderOpen] = useState(false);
+  const [isParentsOpen, setIsParentsOpen] = useState(false);
   const [categoryOrderDraft, setCategoryOrderDraft] = useState([]);
+  const [parentDraft, setParentDraft] = useState({});
   const sortParam = categorySortAsc ? "asc" : "desc";
   const categoryQuery =
     selectedCategory === "all" ? undefined : selectedCategory;
@@ -42,6 +44,21 @@ export default function AdminMenu() {
       }),
     keepPreviousData: true,
   });
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["menu-categories"],
+    queryFn: () => api.getMenuCategories(),
+  });
+
+  const parentKeys = useMemo(() => {
+    const set = new Set();
+    (categoriesData || []).forEach((c) => set.add(c.parentKey || "food"));
+    if (set.size === 0) {
+      set.add("food");
+      set.add("drinks");
+    }
+    return Array.from(set);
+  }, [categoriesData]);
 
   const normalized = useMemo(() => {
     if (Array.isArray(data)) {
@@ -114,6 +131,15 @@ export default function AdminMenu() {
         return a.label.localeCompare(b.label);
       });
   }, [normalized.categories, t]);
+
+  useEffect(() => {
+    if (!Array.isArray(categoriesData)) return;
+    const draft = {};
+    categoriesData.forEach((c) => {
+      if (c?.name) draft[c.name] = c.parentKey || "food";
+    });
+    setParentDraft(draft);
+  }, [categoriesData]);
 
   useEffect(() => {
     if (selectedCategory === "all" || categoryOptions.length === 0) return;
@@ -216,6 +242,22 @@ export default function AdminMenu() {
     }
   };
 
+  const updateParentsMutation = useMutation({
+    mutationFn: (assignments) => api.updateCategoryParents(assignments),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["menu"] });
+      queryClient.invalidateQueries({ queryKey: ["menu-categories"] });
+      setIsParentsOpen(false);
+    },
+  });
+
+  const handleSaveParents = async () => {
+    const assignments = Object.entries(parentDraft).map(
+      ([name, parentKey]) => ({ name, parentKey })
+    );
+    await updateParentsMutation.mutateAsync(assignments);
+  };
+
   const openForm = (item = null) => {
     setEditingItem(item);
     setIsFormOpen(true);
@@ -274,6 +316,13 @@ export default function AdminMenu() {
               className="px-4 py-2 rounded-md border border-slate-200 bg-white text-sm font-medium hover:bg-slate-50"
             >
               {t("admin_menu.reorder_categories")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsParentsOpen(true)}
+              className="px-4 py-2 rounded-md border border-slate-200 bg-white text-sm font-medium hover:bg-slate-50"
+            >
+              {t("admin_menu.manage_parents", "Manage Parents")}
             </button>
           </div>
         </div>
@@ -453,6 +502,157 @@ export default function AdminMenu() {
                 {reorderCategoriesMutation.isPending
                   ? t("admin_menu.reorder_saving")
                   : t("admin_menu.reorder_save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isParentsOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40">
+          <div className="bg-white w-full max-w-md rounded-lg shadow-xl p-6 mx-4">
+            <h4 className="text-lg font-semibold text-slate-800 mb-2">
+              {t("admin_menu.parents_title", "Assign Parent Categories")}
+            </h4>
+            <p className="text-sm text-slate-500 mb-4">
+              {t(
+                "admin_menu.parents_help",
+                "Choose Food/Hrana or Drinks/Piće for each category."
+              )}
+            </p>
+            <div className="space-y-3 max-h-72 overflow-y-auto">
+              {Array.isArray(categoriesData) && categoriesData.length > 0 ? (
+                categoriesData.map((cat) => (
+                  <div
+                    key={cat.name}
+                    className="flex items-center justify-between border rounded-md px-3 py-2"
+                  >
+                    <span className="text-sm font-medium text-slate-700">
+                      {cat.name}
+                    </span>
+                    <select
+                      className="border text-slate-600 rounded-md text-sm p-1 bg-white"
+                      value={parentDraft[cat.name] || "food"}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        if (val === "__new__") {
+                          const input = window.prompt(
+                            t(
+                              "admin_menu.enter_parent",
+                              "Enter new parent key (e.g. sushi, grill):"
+                            )
+                          );
+                          if (input && input.trim().length) {
+                            const key = input
+                              .trim()
+                              .toLowerCase()
+                              .replace(/\s+/g, "_");
+                            try {
+                              await api.updateCategoryParents([
+                                { name: cat.name, parentKey: key },
+                              ]);
+                              setParentDraft((d) => ({ ...d, [cat.name]: key }));
+                              queryClient.invalidateQueries({ queryKey: ["menu-categories"] });
+                            } catch (err) {
+                              console.error(err);
+                              alert(
+                                t(
+                                  "admin_menu.save_error",
+                                  "Failed to save parent."
+                                )
+                              );
+                            }
+                          }
+                        } else {
+                          setParentDraft((d) => ({ ...d, [cat.name]: val }));
+                        }
+                      }}
+                    >
+                      {parentKeys.map((k) => (
+                        <option key={k} value={k}>
+                          {t(
+                            `category_parent.${k}`,
+                            k.charAt(0).toUpperCase() + k.slice(1)
+                          )}
+                        </option>
+                      ))}
+                      <option value="__new__">
+                        {t("admin_menu.add_new_parent", "Add new…")}
+                      </option>
+                    </select>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">
+                  {t("admin_menu.no_categories", "No categories found.")}
+                </p>
+              )}
+            </div>
+            {/* Manage existing parent keys: delete/reassign */}
+            <div className="mt-5 border-t pt-4">
+              <h5 className="text-sm font-semibold text-slate-700 mb-2">
+                {t('admin_menu.manage_parents_keys', 'Parent Keys')}
+              </h5>
+              <div className="space-y-2">
+                {parentKeys.map((pkey) => {
+                  const count = (categoriesData || []).filter((c) => (c.parentKey || 'food') === pkey).length;
+                  return (
+                    <div key={pkey} className="flex items-center justify-between text-sm border rounded-md px-3 py-2 bg-slate-50">
+                      <span className="text-slate-700">
+                        {t(`category_parent.${pkey}`, pkey.charAt(0).toUpperCase() + pkey.slice(1))}
+                        {` `}
+                        <span className="text-slate-400">({count})</span>
+                      </span>
+                      <button
+                        type="button"
+                        className="text-red-600 hover:underline"
+                        onClick={async () => {
+                          if (!window.confirm(t('admin_menu.delete_parent_confirm', 'Delete this parent? Categories will be reassigned.'))) return;
+                          const alternatives = parentKeys.filter((k) => k !== pkey);
+                          const fallback = alternatives[0] || 'food';
+                          const target = window.prompt(
+                            t('admin_menu.reassign_to', 'Reassign to parent key:'),
+                            fallback
+                          );
+                          const targetKey = (target || '').trim();
+                          if (!targetKey || targetKey === pkey) return;
+                          const affected = (categoriesData || []).filter((c) => (c.parentKey || 'food') === pkey);
+                          const assignments = affected.map((c) => ({ name: c.name, parentKey: targetKey }));
+                          if (assignments.length === 0) return;
+                          try {
+                            await api.updateCategoryParents(assignments);
+                            await queryClient.invalidateQueries({ queryKey: ['menu-categories'] });
+                          } catch (err) {
+                            console.error(err);
+                            alert(t('admin_menu.save_error', 'Failed to save parent.'));
+                          }
+                        }}
+                      >
+                        {t('admin_menu.delete_parent', 'Delete')}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsParentsOpen(false)}
+                className="px-4 py-2 rounded-md border border-slate-200 bg-white text-sm text-slate-500 font-medium hover:bg-slate-50"
+                disabled={updateParentsMutation.isPending}
+              >
+                {t("common.cancel", "Cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveParents}
+                className="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:bg-indigo-400"
+                disabled={updateParentsMutation.isPending}
+              >
+                {updateParentsMutation.isPending
+                  ? t("admin_menu.saving", "Saving...")
+                  : t("common.save", "Save")}
               </button>
             </div>
           </div>

@@ -156,6 +156,9 @@ const resources = {
       // Navbar
       experience: "Experience",
       account: "Account",
+      active_orders: {
+        badge: "Active orders: {{count}}",
+      },
       
       // Newsletter
       newsletter: "Newsletter",
@@ -354,6 +357,9 @@ const resources = {
       // Navbar
       experience: "Doživljaj",
       account: "Nalog",
+      active_orders: {
+        badge: "Aktivnih porudžbina: {{count}}",
+      },
       
       // Newsletter
       newsletter: "Newsletter",

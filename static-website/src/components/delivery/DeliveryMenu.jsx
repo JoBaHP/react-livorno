@@ -14,12 +14,10 @@ export default function DeliveryMenu({
   updateCartForItem,
 }) {
   const { t } = useTranslation();
-  const api = useApi();
   const { data: menu = [], isLoading } = useQuery({ queryKey: ['menu'], queryFn: () => api.getMenu() });
-  const { data: categoriesInfo = [] } = useQuery({ queryKey: ['menu-categories'], queryFn: () => api.getMenuCategories() });
-  const [openParent, setOpenParent] = useState(null);
   const [openCategory, setOpenCategory] = useState(null);
   const [customizingItem, setCustomizingItem] = useState(null);
+  const api = useApi();
 
   // Derive categories without hard-coding order.
   // Priority:
@@ -71,29 +69,6 @@ export default function DeliveryMenu({
     return list;
   }, [menu]);
 
-  // Build parent groups dynamically from server categories
-  const parentKeys = useMemo(() => {
-    const set = new Set();
-    (categoriesInfo || []).forEach((c) => set.add(c.parentKey || 'food'));
-    if (set.size === 0) {
-      set.add('food');
-      set.add('drinks');
-    }
-    return Array.from(set);
-  }, [categoriesInfo]);
-  const categoryToParent = useMemo(() => {
-    const m = new Map();
-    (categoriesInfo || []).forEach((c) => m.set(c.name, c.parentKey || 'food'));
-    return m;
-  }, [categoriesInfo]);
-  const grouped = useMemo(() => (
-    parentKeys.map((key) => ({
-      key,
-      label: t(`category_parent.${key}`, key.charAt(0).toUpperCase() + key.slice(1)),
-      categories: categories.filter((cat) => (categoryToParent.get(cat) || 'food') === key),
-    }))
-  ), [parentKeys, categories, categoryToParent, t]);
-
   // Menu is loaded via React Query
 
   const handleCategoryToggle = (category) => {
@@ -121,56 +96,38 @@ export default function DeliveryMenu({
       {isLoading ? (
         <p className="p__opensans text-center">{t("loading_menu")}</p>
       ) : (
-        <div className="space-y-4">
-          {/* Parent buttons inline on large screens */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {grouped.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => {
-                  setOpenParent((p) => (p === key ? null : key));
-                  setOpenCategory(null);
-                }}
-                className={`flex items-center justify-between rounded-lg border border-golden px-4 py-3 bg-black hover:opacity-90 transition-colors ${openParent === key ? 'ring-1 ring-golden' : ''}`}
-                style={{ color: 'var(--color-golden)' }}
-              >
-                <span className="p__cormorant">{label}</span>
-                <ChevronDown className={`transition-transform duration-300 ${openParent === key ? 'rotate-180' : ''}`} />
+        <div className="space-y-3">
+          {categories.map((category) => (
+            <div key={category} className="bg-black border border-golden rounded-lg overflow-hidden">
+              <button onClick={() => handleCategoryToggle(category)} className="w-full flex justify-between items-center p-4">
+                <h3 className="p__cormorant" style={{ color: "var(--color-golden)" }}>
+                  {category}
+                </h3>
+                <ChevronDown
+                  className={`transition-transform duration-300 ${openCategory === category ? "rotate-180" : ""}`}
+                  style={{ color: "var(--color-golden)" }}
+                />
               </button>
-            ))}
-          </div>
-
-          {/* Expanded content spans full width below */}
-          {openParent && (
-            <div className="space-y-3">
-              {grouped.find((g) => g.key === openParent)?.categories.map((category) => (
-                <div key={category} className="bg-black border border-golden rounded-lg overflow-hidden">
-                  <button onClick={() => handleCategoryToggle(category)} className="w-full flex justify-between items-center p-4">
-                    <h3 className="p__cormorant" style={{ color: "var(--color-golden)" }}>{category}</h3>
-                    <ChevronDown className={`transition-transform duration-300 ${openCategory === category ? 'rotate-180' : ''}`} style={{ color: 'var(--color-golden)' }} />
-                  </button>
-                  {openCategory === category && (
-                    <div className="p-4 border-t border-golden">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {menu
-                          .filter((item) => item.category === category)
-                          .map((item) => (
-                            <MenuItem
-                              key={item.id}
-                              item={item}
-                              onCustomize={() => setCustomizingItem(item)}
-                              onAddToCart={addToCart}
-                              updateQuantity={updateQuantity}
-                              quantityInCart={getQuantityInCart(item.id)}
-                            />
-                          ))}
-                      </div>
-                    </div>
-                  )}
+              {openCategory === category && (
+                <div className="p-4 border-t border-golden">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {menu
+                      .filter((item) => item.category === category)
+                      .map((item) => (
+                        <MenuItem
+                          key={item.id}
+                          item={item}
+                          onCustomize={() => setCustomizingItem(item)}
+                          onAddToCart={addToCart}
+                          updateQuantity={updateQuantity}
+                          quantityInCart={getQuantityInCart(item.id)}
+                        />
+                      ))}
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
-          )}
+          ))}
         </div>
       )}
       {customizingItem && (

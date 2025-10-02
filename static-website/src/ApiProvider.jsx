@@ -1,7 +1,7 @@
 import React, { createContext, useContext } from "react";
 import io from "socket.io-client";
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "";
 const withCreds = (opts = {}) => ({ credentials: 'include', ...opts });
 let socketInstance = null;
 const getSocket = () => {

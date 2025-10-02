@@ -25,10 +25,15 @@ const Navbar = () => {
 
   const readActiveOrdersCount = React.useCallback(() => {
     try {
-      const raw = localStorage.getItem('active_delivery_orders');
-      const list = JSON.parse(raw || '[]');
-      if (!Array.isArray(list)) { setActiveOrdersCount(0); return; }
-      const count = list.filter((o) => o && o.status !== 'completed' && o.status !== 'declined').length;
+      const raw = localStorage.getItem("active_delivery_orders");
+      const list = JSON.parse(raw || "[]");
+      if (!Array.isArray(list)) {
+        setActiveOrdersCount(0);
+        return;
+      }
+      const count = list.filter(
+        (o) => o && o.status !== "completed" && o.status !== "declined"
+      ).length;
       setActiveOrdersCount(count);
     } catch {
       setActiveOrdersCount(0);
@@ -37,16 +42,18 @@ const Navbar = () => {
 
   React.useEffect(() => {
     readActiveOrdersCount();
-    const onStorage = (e) => { if (e.key === 'active_delivery_orders') readActiveOrdersCount(); };
+    const onStorage = (e) => {
+      if (e.key === "active_delivery_orders") readActiveOrdersCount();
+    };
     const onFocus = () => readActiveOrdersCount();
     const onCustom = () => readActiveOrdersCount();
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('active-delivery-orders-updated', onCustom);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("active-delivery-orders-updated", onCustom);
     return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('active-delivery-orders-updated', onCustom);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("active-delivery-orders-updated", onCustom);
     };
   }, [readActiveOrdersCount]);
 
@@ -151,7 +158,7 @@ const Navbar = () => {
               TEL: 061/197-0198
             </a>
             <span style={{ opacity: 0.6, fontSize: 14 }}>
-              Bulevar patrijarha Pavle 12, Novi Sad
+              Bulevar patrijarha Pavla 12, Novi Sad
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -189,18 +196,18 @@ const Navbar = () => {
             </button>
             {activeOrdersCount > 0 && (
               <button
-                onClick={() => navigate('/delivery/status')}
+                onClick={() => navigate("/delivery/status")}
                 className="p__opensans"
                 style={{
-                  padding: '4px 10px',
+                  padding: "4px 10px",
                   borderRadius: 9999,
-                  border: '1px solid var(--color-golden)',
-                  background: '#1a1a1a',
-                  color: '#DCCA87',
+                  border: "1px solid var(--color-golden)",
+                  background: "#1a1a1a",
+                  color: "#DCCA87",
                   fontWeight: 700,
                 }}
               >
-                {t('active_orders.badge', { count: activeOrdersCount })}
+                {t("active_orders.badge", { count: activeOrdersCount })}
               </button>
             )}
           </div>
@@ -241,8 +248,8 @@ const Navbar = () => {
                 <span
                   style={{
                     marginLeft: 8,
-                    background: "#DCCA87",
-                    color: "#000",
+                    background: "black",
+                    color: "#DCCA87",
                     borderRadius: 12,
                     padding: "2px 6px",
                     fontSize: 12,

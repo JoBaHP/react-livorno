@@ -14,7 +14,6 @@
     "gh-pages": "^6.2.0",
     "i18next": "^25.4.2",
     "i18next-browser-languagedetector": "^8.2.0",
-    "jwt-decode": "^4.0.0",
     "lucide-react": "^0.525.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -23,19 +22,20 @@
     "react-icons": "^4.7.1",
     "react-redux": "^9.2.0",
     "react-router-dom": "^6.4.4",
-    "react-scripts": "^5.0.1",
-    "recharts": "^3.1.2",
     "socket.io-client": "^4.8.1",
-    "web-vitals": "^3.1.0"
+    "vite-plugin-pwa": "^1.0.3",
+    "web-vitals": "^3.1.0",
+    "workbox-window": "^7.3.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "test": "echo \"No test runner configured.\" && exit 1",
     "shrink:video": "bash ../scripts/shrink-video.sh ../static-website/public/media/pizza.mp4 --amend",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "deploy": "gh-pages -d dist"
   },
   "eslintConfig": {
     "extends": [
@@ -56,16 +56,19 @@
     ]
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",
     "babel-eslint": "^10.1.0",
     "eslint": "^8.29.0",
     "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-react-app": "^7.0.1",
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-jsx-a11y": "^6.6.1",
     "eslint-plugin-react": "^7.31.11",
     "eslint-plugin-react-hooks": "^4.6.0",
     "github-pages": "^0.1.0",
     "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "vite": "^5.4.9"
   }
 }

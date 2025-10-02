@@ -176,22 +176,7 @@ const resources = {
       add: "Add",
       image_not_found: "Image Not Found",
       
-      // Modal
-      try_our_crispy_chicken: "Have you already tried our crispy chicken?",
-      crispy_chicken_price: "Price: 790din",
-      call_now: "Call now:",
-      footer_quote: "\"The best way to find yourself is to come to us!\"",
-      
-      // SpecialMenu
-      menu_for_all_tastes: "Menu that satisfies all tastes",
-      featured_selection: "Featured Selection",
-      drinks_menu: "Drinks Menu",
-      popular_dishes: "Popular Dishes",
-      full_menu: "Full Menu",
-      
       // Data Translations
-      wine_title: "Drinks",
-      cocktail_title: "Specialities",
       foods: {
         title: "Delicious Food",
         description: "Delights awaits in Restaurant Livorno with exceptional ingredients and unique taste. Restaurant Livorno has been trusted for years by numerous connoisseurs of gourmet cuisine for its unforgettable taste.",
@@ -377,22 +362,7 @@ const resources = {
       add: "Dodaj",
       image_not_found: "Slika Nije Pronađena",
       
-      // Modal
-      try_our_crispy_chicken: "Da li ste vec probali nasu hrskavu piletinu?",
-      crispy_chicken_price: "Cena: 790din",
-      call_now: "Pozovite:",
-      footer_quote: "\"Najbolji način da pronađete sebe jeste da dođete kod nas!\"",
-      
-      // SpecialMenu
-      menu_for_all_tastes: "Meni koji zadovoljava sve ukuse",
-      featured_selection: "Izdvajamo iz Ponude",
-      drinks_menu: "Karta Pića",
-      popular_dishes: "Popularna Jela",
-      full_menu: "Ceo Meni",
-      
       // Data Translations
-      wine_title: "Pića",
-      cocktail_title: "Specijalnosti",
       foods: {
         title: "Gurmanska Jela",
         description: "Zaštita pronađete kod nas sa izuzetnim sastojcima i jedinstvenim ukusom. Restoran Livorno više godina zahvaljujući neprobitnoj hrani za vjerne klijente arež omogućuja nezaboravno iskustvo."

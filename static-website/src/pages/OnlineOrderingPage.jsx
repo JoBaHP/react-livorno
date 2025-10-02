@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from "react-i18next";
 import { useApi } from "../ApiProvider";
 import DeliveryMenu from "../components/delivery/DeliveryMenu";
 import DeliveryCheckout from "../components/delivery/DeliveryCheckout";
 import DeliveryStatus from "../components/delivery/DeliveryStatus";
 import { Navbar } from "../components";
+import { Plus, Minus } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   addItem,
@@ -20,11 +22,14 @@ import {
 import { selectCartItems, selectCurrentOrder } from "../store";
 
 export default function OnlineOrderingPage({ initialView }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const dispatch = useDispatch();
   const cart = useSelector(selectCartItems);
   const order = useSelector(selectCurrentOrder);
   const authUser = useSelector((state) => state.auth.user);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
   const [activeOrders, setActiveOrders] = useState(() => {
     try {
       const raw = localStorage.getItem("active_delivery_orders");
@@ -35,16 +40,41 @@ export default function OnlineOrderingPage({ initialView }) {
       return [];
     }
   });
-  const [view, setView] = useState(() => {
+  const [activeView, setActiveView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const v = params.get("view");
-    if (initialView === 'status') return 'status';
-    if (v === "checkout") return "checkout";
-    if (v === "status") return "status";
+    if (initialView === "status" || v === "status") return "status";
+    if (v === "checkout" || v === "cart") return "checkout";
     return "menu";
   });
   const api = useApi();
   const [banner, setBanner] = useState(null);
+
+  const navigateToView = useCallback((target) => {
+    if (!target) return;
+    setActiveView(target);
+  }, []);
+
+  const showToast = useCallback((message, variant = "info") => {
+    setToast({ id: Date.now(), message, variant });
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return () => {};
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 2200);
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+    };
+  }, [toast]);
 
   useEffect(() => {
     try {
@@ -117,17 +147,55 @@ export default function OnlineOrderingPage({ initialView }) {
     return () => api.socket.off("order_status_update", onStatusUpdate);
   }, [order?.id, api.socket, dispatch]);
 
-  const addToCart = (item, size, selectedOptions) => {
-    dispatch(addItem({ item, size, selectedOptions }));
-  };
+  const addToCart = useCallback(
+    (item, size, selectedOptions) => {
+      dispatch(addItem({ item, size, selectedOptions }));
+      const sizeLabel = size?.name ? ` (${size.name})` : "";
+      showToast(
+        t("delivery.toast_added", {
+          defaultValue: "Added to cart: {{name}}",
+          name: `${item.name}${sizeLabel}`,
+        }),
+        "add"
+      );
+    },
+    [dispatch, showToast, t]
+  );
 
-  const updateQuantity = (cartId, amount) => {
-    dispatch(updateQuantityAction({ cartId, amount }));
-  };
+  const updateQuantity = useCallback(
+    (cartId, amount) => {
+      const entry = cart.find((c) => c.cartId === cartId);
+      dispatch(updateQuantityAction({ cartId, amount }));
+      if (!entry || amount === 0) return;
+      if (amount > 0) {
+        showToast(
+          t("delivery.toast_increment", {
+            defaultValue: "Added one {{name}}",
+            name: entry.name,
+          }),
+          "add"
+        );
+      } else {
+        const nextQty = (entry.quantity || 0) + amount;
+        const key = nextQty <= 0 ? "delivery.toast_removed" : "delivery.toast_decrement";
+        showToast(
+          t(key, {
+            defaultValue: nextQty <= 0 ? "Removed {{name}}" : "Removed one {{name}}",
+            name: entry.name,
+          }),
+          nextQty <= 0 ? "remove" : "decrement"
+        );
+      }
+    },
+    [cart, dispatch, showToast, t]
+  );
 
-  const updateOptionQuantity = (cartId, optionId, delta) => {
-    dispatch(updateOptionQuantityAction({ cartId, optionId, delta }));
-  };
+  const updateOptionQuantity = useCallback(
+    (cartId, optionId, delta) => {
+      dispatch(updateOptionQuantityAction({ cartId, optionId, delta }));
+    },
+    [dispatch]
+  );
 
   const updateCartForItem = (
     item,
@@ -229,13 +297,20 @@ export default function OnlineOrderingPage({ initialView }) {
 
     const newItems = Array.from(grouped.values());
     dispatch(replaceItemsForProduct({ productId: item.id, items: newItems }));
+    showToast(
+      t("delivery.toast_updated", {
+        defaultValue: "Updated cart for {{name}}",
+        name: item.name,
+      }),
+      "info"
+    );
   };
 
   useEffect(() => {
-    if (view === "status" && !order && activeOrders.length === 0) {
-      setView("menu");
+    if (activeView === "status" && !order && activeOrders.length === 0) {
+      navigateToView("menu");
     }
-  }, [order, activeOrders.length, view]);
+  }, [order, activeOrders.length, activeView, navigateToView]);
 
   const placeDeliveryOrder = async (customerDetails) => {
     let fullAddress = `${customerDetails.street} ${customerDetails.number}`;
@@ -257,9 +332,13 @@ export default function OnlineOrderingPage({ initialView }) {
     const newOrder = await api.placeDeliveryOrder(orderData);
     if (newOrder.id) {
       dispatch(setOrder(newOrder));
-      setView("status");
+      navigateToView("status");
       dispatch(clear());
       setActiveOrders((prev) => [{ ...newOrder }, ...prev]);
+      showToast(
+        t("delivery.toast_placed", { defaultValue: "Order placed!" }),
+        "add"
+      );
     } else {
       throw new Error(newOrder.message || "An unknown error occurred.");
     }
@@ -268,60 +347,91 @@ export default function OnlineOrderingPage({ initialView }) {
   // On entry, if there are active orders saved, show status view
   useEffect(() => {
     if (activeOrders.length > 0) {
-      setView("status");
+      navigateToView("status");
     }
-  }, [activeOrders.length]);
+  }, [activeOrders.length, navigateToView]);
 
   // React to URL changes (e.g., clicking navbar pill to /delivery?view=status)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const v = params.get('view');
-    if (location.pathname.endsWith('/status') || v === 'status') setView('status');
-    else if (v === 'checkout') setView('checkout');
-    else if (!v) setView('menu');
-  }, [location.search, location.pathname]);
+    if (location.pathname.endsWith('/status') || v === 'status') navigateToView('status');
+    else if (v === 'checkout' || v === 'cart') navigateToView('checkout');
+    else if (!v) navigateToView('menu');
+  }, [location.search, location.pathname, navigateToView]);
 
-  const renderView = () => {
-    switch (view) {
-      case "checkout":
-        return (
-          <DeliveryCheckout
-            cart={cart}
-            onPlaceOrder={placeDeliveryOrder}
-            onBackToMenu={() => setView("menu")}
-            updateQuantity={updateQuantity}
-            updateOptionQuantity={updateOptionQuantity}
-          />
-        );
-      case "status":
-        return (
-          <div className="space-y-8">
-            {activeOrders.length === 0 && order && (
-              <DeliveryStatus order={order} />
-            )}
-            {activeOrders.map((o) => (
-              <DeliveryStatus key={o.id} order={o} />
-            ))}
-          </div>
-        );
-      case "menu":
-      default:
-        return (
-          <DeliveryMenu
-            cart={cart}
-            addToCart={addToCart}
-            onGoToCheckout={() => setView("checkout")}
-            updateQuantity={updateQuantity}
-            updateCartForItem={updateCartForItem}
-          />
-        );
+  let content;
+  if (activeView === "status") {
+    if (activeOrders.length > 0) {
+      content = (
+        <div className="space-y-8">
+          {activeOrders.map((o) => (
+            <DeliveryStatus key={o.id} order={o} />
+          ))}
+        </div>
+      );
+    } else if (order) {
+      content = <DeliveryStatus order={order} />;
+    } else {
+      content = (
+        <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-xl p-8 text-center">
+          <h3 className="headtext__cormorant text-3xl mb-2 text-dark">
+            {t("delivery_status.no_active", "No active deliveries right now")}
+          </h3>
+          <p className="p__opensans text-slate-600 mb-4">
+            {t("delivery_status.start_order", "Browse the menu to start a new order.")}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigateToView("menu")}
+            className="custom__button"
+          >
+            {t("delivery_status.back_to_menu", "Back to menu")}
+          </button>
+        </div>
+      );
     }
-  };
+  } else if (activeView === "checkout") {
+    content = (
+      <DeliveryCheckout
+        cart={cart}
+        onPlaceOrder={placeDeliveryOrder}
+        onBackToMenu={() => navigateToView("menu")}
+        updateQuantity={updateQuantity}
+        updateOptionQuantity={updateOptionQuantity}
+      />
+    );
+  } else {
+    content = (
+      <DeliveryMenu
+        cart={cart}
+        addToCart={addToCart}
+        onViewCart={() => navigateToView("checkout")}
+        updateQuantity={updateQuantity}
+        updateCartForItem={updateCartForItem}
+      />
+    );
+  }
+
+  const toastElement =
+    toast && (
+      <div className="fixed top-6 right-6 z-50">
+        <div className="bg-[var(--color-golden)] text-[#0c0c0c] px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 font-semibold tracking-wide">
+          {toast.variant === "remove" || toast.variant === "decrement" ? (
+            <Minus size={18} className="opacity-70" />
+          ) : (
+            <Plus size={18} className="opacity-70" />
+          )}
+          <span className="text-sm uppercase">{toast.message}</span>
+        </div>
+      </div>
+    );
 
   return (
     <div className="bg-black min-h-screen">
       <Navbar />
       <main className="py-8 px-4">
+        {toastElement}
         {banner && (
           <div
             className="mb-4 p-3 rounded-md"
@@ -335,7 +445,7 @@ export default function OnlineOrderingPage({ initialView }) {
             </p>
           </div>
         )}
-        {renderView()}
+        {content}
       </main>
     </div>
   );

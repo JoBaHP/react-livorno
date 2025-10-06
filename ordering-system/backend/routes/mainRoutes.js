@@ -9,6 +9,7 @@ const deliveryZoneController = require("../controllers/deliveryZoneController");
 const orderController = require("../controllers/orderController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const streetsController = require("../controllers/streetsController");
+const textbeeWebhookController = require("../controllers/textbeeWebhookController");
 
 const router = express.Router();
 
@@ -79,5 +80,7 @@ router.post(
   admin,
   streetsController.populateStreetsFromCity
 );
+
+router.post("/webhooks/textbee/delivery", textbeeWebhookController.handleDelivery);
 
 module.exports = router;

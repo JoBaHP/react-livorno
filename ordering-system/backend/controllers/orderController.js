@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { getIO } = require("../socket");
 const jwt = require("jsonwebtoken");
+const textBee = require("../services/textbeeClient");
 
 const normaliseOptions = (options = []) =>
   options.map((opt) => {
@@ -40,6 +41,65 @@ const getSessionUser = (req) => {
   } catch (err) {
     return null;
   }
+};
+
+const restaurantName = process.env.RESTAURANT_NAME || "Livorno Ristorante";
+const restaurantAddress =
+  process.env.RESTAURANT_ADDRESS || process.env.RESTAURANT_LOCATION || "";
+const restaurantLocale = process.env.RESTAURANT_LOCALE || "en-US";
+const restaurantCurrency = process.env.RESTAURANT_CURRENCY || "EUR";
+
+const formatCurrency = (value) => {
+  const amount = Number.parseFloat(value);
+  if (!Number.isFinite(amount)) return String(value ?? "");
+  try {
+    return new Intl.NumberFormat(restaurantLocale, {
+      style: "currency",
+      currency: restaurantCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch (err) {
+    return amount.toFixed(2);
+  }
+};
+
+const buildDeliveryAcceptanceMessage = (order, waitTimeMinutes) => {
+  if (!order) return null;
+  const lines = [];
+  lines.push(`${restaurantName} delivery accepted`);
+  const waitMinutes = Number.isFinite(waitTimeMinutes)
+    ? Math.max(waitTimeMinutes, 0)
+    : null;
+  let etaLine = "Ready soon";
+  if (waitMinutes !== null) {
+    const etaDate = new Date(Date.now() + waitMinutes * 60 * 1000);
+    const etaTime = etaDate.toLocaleTimeString(restaurantLocale, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    etaLine = `Ready in ~${waitMinutes} min (≈ ${etaTime})`;
+  }
+  lines.push(`Order #${order.id} · ${etaLine}`);
+  if (order.customer_name) {
+    lines.push(`Customer: ${order.customer_name}`);
+  }
+  if (order.customer_phone) {
+    lines.push(`Phone: ${order.customer_phone}`);
+  }
+  if (order.customer_address) {
+    lines.push(`Address: ${order.customer_address}`);
+  }
+  if (restaurantAddress) {
+    lines.push(`Pickup: ${restaurantAddress}`);
+  }
+  if (order.total !== undefined && order.total !== null) {
+    lines.push(`Bill: ${formatCurrency(order.total)}`);
+  }
+  if (order.notes) {
+    lines.push(`Notes: ${order.notes}`);
+  }
+  return lines.join("\n");
 };
 
 // --- placeOrder: Handles creating a new TABLE order ---
@@ -279,10 +339,15 @@ exports.repriceOrder = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   const { id } = req.params;
   const { status, waitTime } = req.body;
+  const parsedWait =
+    waitTime === undefined || waitTime === null || waitTime === ''
+      ? null
+      : Number.parseInt(waitTime, 10);
+  const waitTimeValue = Number.isFinite(parsedWait) ? parsedWait : null;
   try {
     const { rows } = await db.query(
       "UPDATE orders SET status = $1, wait_time = COALESCE($2, wait_time) WHERE id = $3 RETURNING *",
-      [status, waitTime, id]
+      [status, waitTimeValue, id]
     );
     const updatedOrder = rows[0];
 
@@ -291,6 +356,25 @@ exports.updateOrderStatus = async (req, res) => {
       [updatedOrder.id]
     );
     const finalOrder = { ...updatedOrder, items: itemsResult.rows };
+
+    if (
+      status === "accepted" &&
+      finalOrder.order_type === "delivery" &&
+      textBee.isConfigured()
+    ) {
+      const fallbackWait = Number.isFinite(Number(finalOrder.wait_time))
+        ? Number.parseInt(finalOrder.wait_time, 10)
+        : null;
+      const waitMinutes = waitTimeValue ?? fallbackWait;
+      const message = buildDeliveryAcceptanceMessage(finalOrder, waitMinutes);
+      if (message) {
+        try {
+          await textBee.broadcastMessage(message);
+        } catch (smsErr) {
+          console.error("Failed to queue TextBee delivery alert:", smsErr);
+        }
+      }
+    }
 
     getIO().emit("order_status_update", finalOrder);
     res.json(finalOrder);

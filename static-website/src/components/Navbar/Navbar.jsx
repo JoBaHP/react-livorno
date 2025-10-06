@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
 import images from "../../constants/images";
@@ -14,12 +14,53 @@ import { FaUserCircle } from "react-icons/fa";
 const Navbar = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const [toggleMenu, setToggleMenu] = React.useState(false);
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const cartCount = useSelector(selectCartItemCount);
   const user = useSelector((state) => state.auth.user);
   const dispatch = useDispatch();
   const api = useApi();
+  const [activeOrdersCount, setActiveOrdersCount] = React.useState(0);
+
+  const readActiveOrdersCount = React.useCallback(() => {
+    try {
+      const raw = localStorage.getItem("active_delivery_orders");
+      const list = JSON.parse(raw || "[]");
+      if (!Array.isArray(list)) {
+        setActiveOrdersCount(0);
+        return;
+      }
+      const count = list.filter(
+        (o) => o && o.status !== "completed" && o.status !== "declined"
+      ).length;
+      setActiveOrdersCount(count);
+    } catch {
+      setActiveOrdersCount(0);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    readActiveOrdersCount();
+    const onStorage = (e) => {
+      if (e.key === "active_delivery_orders") readActiveOrdersCount();
+    };
+    const onFocus = () => readActiveOrdersCount();
+    const onCustom = () => readActiveOrdersCount();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("active-delivery-orders-updated", onCustom);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("active-delivery-orders-updated", onCustom);
+    };
+  }, [readActiveOrdersCount]);
+
+  // Also refresh the badge whenever route changes within the SPA
+  React.useEffect(() => {
+    readActiveOrdersCount();
+  }, [location.pathname, location.search, readActiveOrdersCount]);
 
   React.useEffect(() => {
     if (!showUserMenu) return;
@@ -117,7 +158,7 @@ const Navbar = () => {
               TEL: 061/197-0198
             </a>
             <span style={{ opacity: 0.6, fontSize: 14 }}>
-              Bulevar patrijarha Pavle 12, Novi Sad
+              Bulevar patrijarha Pavla 12, Novi Sad
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -153,6 +194,22 @@ const Navbar = () => {
             >
               SR
             </button>
+            {activeOrdersCount > 0 && (
+              <button
+                onClick={() => navigate("/delivery/status")}
+                className="p__opensans"
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 9999,
+                  border: "1px solid var(--color-golden)",
+                  background: "#1a1a1a",
+                  color: "#DCCA87",
+                  fontWeight: 700,
+                }}
+              >
+                {t("active_orders.badge", { count: activeOrdersCount })}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -191,8 +248,8 @@ const Navbar = () => {
                 <span
                   style={{
                     marginLeft: 8,
-                    background: "#DCCA87",
-                    color: "#000",
+                    background: "black",
+                    color: "#DCCA87",
                     borderRadius: 12,
                     padding: "2px 6px",
                     fontSize: 12,

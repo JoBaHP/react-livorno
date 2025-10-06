@@ -114,7 +114,8 @@ export default function AccountPage() {
   };
 
   const handleGoogle = () => {
-    window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google`;
+    const base = import.meta.env.VITE_API_URL || "";
+    window.location.href = `${base}/api/auth/google`;
   };
 
   const handleLogout = async () => {

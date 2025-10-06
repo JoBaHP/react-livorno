@@ -2,23 +2,72 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useApi } from "../../ApiProvider";
 import MenuItem from "../MenuItem";
-import { ChevronDown, ShoppingCart, Plus, Minus } from "lucide-react";
+import { ShoppingCart, Plus, Minus } from "lucide-react";
+import { getParentIcon } from "../../utils/parentIcons";
 import { formatCurrency } from "../../utils/format";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from "@tanstack/react-query";
 
 export default function DeliveryMenu({
   cart = [],
   addToCart,
-  onGoToCheckout,
+  onViewCart,
   updateQuantity,
   updateCartForItem,
 }) {
   const { t } = useTranslation();
-  const { data: menu = [], isLoading } = useQuery({ queryKey: ['menu'], queryFn: () => api.getMenu() });
-  const [openCategory, setOpenCategory] = useState(null);
-  const [customizingItem, setCustomizingItem] = useState(null);
   const api = useApi();
+  const { data: rawMenu, isLoading } = useQuery({
+    queryKey: ["menu"],
+    queryFn: () => api.getMenu(),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 30 * 60 * 1000,
+  });
+  const { data: rawCategoriesInfo } = useQuery({
+    queryKey: ["menu-categories"],
+    queryFn: () => api.getMenuCategories(),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 30 * 60 * 1000,
+  });
 
+  const [cachedMenu, setCachedMenu] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem("cached_delivery_menu");
+      const parsed = JSON.parse(raw || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [cachedCategories, setCachedCategories] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem("cached_delivery_menu_categories");
+      const parsed = JSON.parse(raw || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const menu = useMemo(() => {
+    if (Array.isArray(rawMenu)) return rawMenu;
+    if (rawMenu && Array.isArray(rawMenu.items)) return rawMenu.items;
+    if (cachedMenu.length) return cachedMenu;
+    return [];
+  }, [rawMenu, cachedMenu]);
+
+  const categoriesInfo = useMemo(() => {
+    if (Array.isArray(rawCategoriesInfo)) return rawCategoriesInfo;
+    if (rawCategoriesInfo && Array.isArray(rawCategoriesInfo.categories)) {
+      return rawCategoriesInfo.categories;
+    }
+    if (cachedCategories.length) return cachedCategories;
+    return [];
+  }, [rawCategoriesInfo, cachedCategories]);
+  const [selectedParent, setSelectedParent] = useState(null);
+  const [activeCategory, setActiveCategory] = useState("__all__");
+  const [customizingItem, setCustomizingItem] = useState(null);
   // Derive categories without hard-coding order.
   // Priority:
   // 1) If REACT_APP_CATEGORY_ORDER is set (comma-separated), use that.
@@ -42,7 +91,7 @@ export default function DeliveryMenu({
       }
     });
 
-    const env = (process.env.REACT_APP_CATEGORY_ORDER || '')
+    const env = (import.meta.env.VITE_CATEGORY_ORDER || '')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
@@ -69,13 +118,105 @@ export default function DeliveryMenu({
     return list;
   }, [menu]);
 
-  // Menu is loaded via React Query
+  const parentKeys = useMemo(() => {
+    const set = new Set();
+    (categoriesInfo || []).forEach((c) => set.add(c.parentKey || "food"));
+    if (set.size === 0) {
+      set.add("food");
+      set.add("drinks");
+    }
+    return Array.from(set);
+  }, [categoriesInfo]);
 
-  const handleCategoryToggle = (category) => {
-    setOpenCategory((prevOpenCategory) =>
-      prevOpenCategory === category ? null : category
-    );
-  };
+  const categoryToParent = useMemo(() => {
+    const m = new Map();
+    (categoriesInfo || []).forEach((c) => m.set(c.name, c.parentKey || "food"));
+    return m;
+  }, [categoriesInfo]);
+
+  const grouped = useMemo(
+    () =>
+      parentKeys.map((key) => ({
+        key,
+        label: t(
+          `category_parent.${key}`,
+          key.charAt(0).toUpperCase() + key.slice(1)
+        ),
+        categories: categories.filter(
+          (cat) => (categoryToParent.get(cat) || "food") === key
+        ),
+      })),
+    [parentKeys, categories, categoryToParent, t]
+  );
+
+  const categoriesForSelectedParent = useMemo(() => {
+    if (!selectedParent) return [];
+    const group = grouped.find((g) => g.key === selectedParent);
+    return group?.categories || [];
+  }, [grouped, selectedParent]);
+
+  useEffect(() => {
+    if (!menu.length) return;
+    setCachedMenu(menu);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('cached_delivery_menu', JSON.stringify(menu));
+      } catch (err) {
+        console.warn('Failed to cache delivery menu', err);
+      }
+    }
+  }, [menu]);
+
+  useEffect(() => {
+    if (!categoriesInfo.length) return;
+    setCachedCategories(categoriesInfo);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('cached_delivery_menu_categories', JSON.stringify(categoriesInfo));
+      } catch (err) {
+        console.warn('Failed to cache delivery categories', err);
+      }
+    }
+  }, [categoriesInfo]);
+
+  useEffect(() => {
+    if (!grouped.length) {
+      setSelectedParent(null);
+      return;
+    }
+    setSelectedParent((prev) => {
+      if (prev && grouped.some((pg) => pg.key === prev)) {
+        return prev;
+      }
+      return grouped[0].key;
+    });
+  }, [grouped]);
+
+  useEffect(() => {
+    if (!categoriesForSelectedParent.length) {
+      setActiveCategory("__all__");
+      return;
+    }
+    setActiveCategory((prev) => {
+      if (prev === "__all__") return prev;
+      return categoriesForSelectedParent.includes(prev)
+        ? prev
+        : categoriesForSelectedParent[0];
+    });
+  }, [categoriesForSelectedParent]);
+
+  const categoriesToDisplay = useMemo(() => {
+    if (!selectedParent) return [];
+    if (!categoriesForSelectedParent.length) return [];
+    if (activeCategory === "__all__") {
+      return categoriesForSelectedParent;
+    }
+    return categoriesForSelectedParent.includes(activeCategory)
+      ? [activeCategory]
+      : categoriesForSelectedParent;
+  }, [activeCategory, categoriesForSelectedParent, selectedParent]);
+
+  const hasParentGroups = parentKeys.length > 0;
 
   const getQuantityInCart = (menuItemId) => {
     return cart
@@ -89,45 +230,160 @@ export default function DeliveryMenu({
     <div className="space-y-6">
       <div className="text-center">
         <h1 className="headtext__cormorant">{t("order_for_delivery")}</h1>
-        <p className="p__opensans" style={{ color: "var(--color-grey)", marginTop: "1rem" }}>
+        <p
+          className="p__opensans"
+          style={{ color: "var(--color-grey)", marginTop: "1rem" }}
+        >
           {t("delivery_description")}
         </p>
       </div>
       {isLoading ? (
         <p className="p__opensans text-center">{t("loading_menu")}</p>
       ) : (
-        <div className="space-y-3">
-          {categories.map((category) => (
-            <div key={category} className="bg-black border border-golden rounded-lg overflow-hidden">
-              <button onClick={() => handleCategoryToggle(category)} className="w-full flex justify-between items-center p-4">
-                <h3 className="p__cormorant" style={{ color: "var(--color-golden)" }}>
-                  {category}
-                </h3>
-                <ChevronDown
-                  className={`transition-transform duration-300 ${openCategory === category ? "rotate-180" : ""}`}
-                  style={{ color: "var(--color-golden)" }}
-                />
-              </button>
-              {openCategory === category && (
-                <div className="p-4 border-t border-golden">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {menu
-                      .filter((item) => item.category === category)
-                      .map((item) => (
-                        <MenuItem
-                          key={item.id}
-                          item={item}
-                          onCustomize={() => setCustomizingItem(item)}
-                          onAddToCart={addToCart}
-                          updateQuantity={updateQuantity}
-                          quantityInCart={getQuantityInCart(item.id)}
-                        />
-                      ))}
+        <div className="space-y-6">
+          {hasParentGroups && (
+            <div className="overflow-x-auto">
+              <div className="flex items-center gap-3 sm:gap-4">
+                {grouped.map(({ key, label }) => {
+                  const isActive = selectedParent === key;
+                  const Icon = getParentIcon(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setSelectedParent(key);
+                        setActiveCategory("__all__");
+                      }}
+                      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold tracking-wide uppercase transition-all ${
+                        isActive
+                          ? "bg-[var(--color-golden)] text-[#0c0c0c] border-[var(--color-golden)] shadow"
+                          : "border-[rgba(220,202,135,0.35)] text-[var(--color-golden)] hover:border-[var(--color-golden)]"
+                      }`}
+                    >
+                      <Icon size={18} />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {selectedParent && categoriesForSelectedParent.length > 0 && (
+            <div className="space-y-6">
+              {categoriesForSelectedParent.length > 0 && (
+                <div className="overflow-x-auto">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    {categoriesForSelectedParent.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveCategory("__all__")}
+                        className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition ${
+                          activeCategory === "__all__"
+                            ? "bg-white text-[#0c0c0c]"
+                            : "bg-white/10 border border-[var(--color-border)] text-[var(--color-golden)] hover:bg-white/15"
+                        }`}
+                      >
+                        {t("menu.all", "All")}
+                      </button>
+                    )}
+                    {categoriesForSelectedParent.map((category) => {
+                      const isActive = activeCategory === category;
+                      return (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => setActiveCategory(category)}
+                          className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition ${
+                            isActive
+                              ? "bg-white text-[#0c0c0c]"
+                              : "bg-white/10 border border-[var(--color-border)] text-[var(--color-golden)] hover:bg-white/15"
+                          }`}
+                        >
+                          {category}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+
+              <div className="space-y-10">
+                {categoriesToDisplay.map((category) => {
+                  const itemsForCategory = menu.filter(
+                    (item) => item.category === category
+                  );
+                  if (itemsForCategory.length === 0) return null;
+                  return (
+                    <section key={category} className="space-y-4">
+                      <header className="flex items-baseline justify-between">
+                        <h3
+                          className="p__cormorant text-2xl"
+                          style={{ color: "var(--color-golden)" }}
+                        >
+                          {category}
+                        </h3>
+                      </header>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {itemsForCategory.map((item) => (
+                          <MenuItem
+                            key={item.id}
+                            item={item}
+                            onCustomize={() => setCustomizingItem(item)}
+                            onAddToCart={addToCart}
+                            updateQuantity={updateQuantity}
+                            quantityInCart={getQuantityInCart(item.id)}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
             </div>
-          ))}
+          )}
+
+          {!hasParentGroups && (
+            <div className="space-y-10">
+              {categories.length === 0 ? (
+                <p className="text-sm text-[var(--color-muted)]">
+                  {t("no_items")}
+                </p>
+              ) : (
+                categories.map((category) => {
+                  const key = category || "__uncategorized__";
+                  const label = category || t("menu.uncategorized", "Uncategorized");
+                  const itemsForCategory = menu.filter((item) =>
+                    category ? item.category === category : !item.category
+                  );
+                  if (itemsForCategory.length === 0) return null;
+                  return (
+                    <section key={key} className="space-y-4">
+                      <h3
+                        className="p__cormorant text-2xl"
+                        style={{ color: "var(--color-golden)" }}
+                      >
+                        {label}
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {itemsForCategory.map((item) => (
+                          <MenuItem
+                            key={item.id}
+                            item={item}
+                            onCustomize={() => setCustomizingItem(item)}
+                            onAddToCart={addToCart}
+                            updateQuantity={updateQuantity}
+                            quantityInCart={getQuantityInCart(item.id)}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       )}
       {customizingItem && (
@@ -140,7 +396,7 @@ export default function DeliveryMenu({
       )}
       {cartItemCount > 0 && (
         <div className="sticky bottom-4 w-full flex justify-center">
-          <button onClick={onGoToCheckout} className="custom__button flex items-center gap-3">
+          <button onClick={onViewCart} className="custom__button flex items-center gap-3">
             <ShoppingCart />
             {t("view_order")} ({cartItemCount} {cartItemCount > 1 ? t("items") : t("item")})
           </button>

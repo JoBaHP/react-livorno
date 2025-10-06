@@ -1,7 +1,7 @@
 import React, { createContext, useContext } from "react";
 import io from "socket.io-client";
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "";
 const withCreds = (opts = {}) => ({ credentials: 'include', ...opts });
 let socketInstance = null;
 const getSocket = () => {
@@ -25,6 +25,11 @@ export const ApiProvider = ({ children }) => {
       ).toString();
       const url = query ? `${API_URL}/api/menu?${query}` : `${API_URL}/api/menu`;
       const response = await fetch(url, withCreds());
+      return response.json();
+    },
+
+    getMenuCategories: async () => {
+      const response = await fetch(`${API_URL}/api/menu/categories`, withCreds());
       return response.json();
     },
 

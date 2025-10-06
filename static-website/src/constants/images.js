@@ -8,7 +8,6 @@ import gallery04 from "../assets/gallery04.png";
 import gallery05 from "../assets/gallery05.png";
 import gallery06 from "../assets/gallery06.png";
 import rollingpin from "../assets/oklagija.png";
-import menu from "../assets/gallery03.png";
 import overlaybg from "../assets/overlaybg.png";
 import spoon from "../assets/spoon.svg";
 import welcome from "../assets/enterijer.png";
@@ -33,7 +32,6 @@ const obj = {
   gallery05,
   gallery06,
   rollingpin,
-  menu,
   overlaybg,
   spoon,
   welcome,

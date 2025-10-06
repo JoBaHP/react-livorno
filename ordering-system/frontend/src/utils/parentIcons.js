@@ -1,7 +1,14 @@
-import { Utensils, CupSoda, Coffee, Fish, Beef, IceCream, Salad, Sandwich } from "lucide-react";
+import {
+  Utensils,
+  CupSoda,
+  Coffee,
+  Fish,
+  Beef,
+  IceCream,
+  Salad,
+  Sandwich,
+} from "lucide-react";
 
-// Map parentKey to an icon component from lucide-react.
-// Extend this object to add/change icons per parent.
 const ICONS = {
   food: Utensils,
   drinks: CupSoda,
@@ -18,3 +25,4 @@ export function getParentIcon(parentKey) {
   return ICONS[key] || Utensils;
 }
 
+export default getParentIcon;

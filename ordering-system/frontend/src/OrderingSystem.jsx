@@ -79,7 +79,9 @@ export default function OrderingSystem() {
       return true;
     }
   });
-  const [showStatus, setShowStatus] = useState(() => activeOrders.length > 0);
+  const [activeView, setActiveView] = useState(() =>
+    activeOrders.length > 0 ? 'status' : 'menu'
+  );
   const prevOrderIdRef = useRef(activeOrders[0]?.id || null);
 
   const mergeActiveOrder = useCallback(
@@ -155,7 +157,7 @@ export default function OrderingSystem() {
     const currentId = activeOrders[0]?.id || null;
     const prevId = prevOrderIdRef.current;
     if (currentId && currentId !== prevId) {
-      setShowStatus(true);
+      setActiveView('status');
       setShowActiveBanner(true);
       try {
         sessionStorage.removeItem('active_order_banner_dismissed');
@@ -164,15 +166,25 @@ export default function OrderingSystem() {
       }
     }
     if (!currentId) {
-      setShowStatus(false);
       setShowActiveBanner(false);
+      if (activeView === 'status') {
+        setActiveView('menu');
+      }
     }
     prevOrderIdRef.current = currentId;
-  }, [activeOrders]);
+  }, [activeOrders, activeView]);
 
   const handleViewStatus = useCallback(() => {
-    setShowStatus(true);
+    setActiveView('status');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const navigateToView = useCallback((view) => {
+    if (!view) return;
+    setActiveView(view);
+    if (view === 'status' || view === 'cart') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, []);
 
   const primaryOrder = activeOrders[0] || null;
@@ -197,11 +209,14 @@ export default function OrderingSystem() {
                 onClick={handleViewStatus}
               />
             ) : (
-              <CartBadge count={cartCount} />
+              <CartBadge
+                count={cartCount}
+                onClick={() => navigateToView('cart')}
+              />
             )}
           </div>
         </nav>
-        {primaryOrder && showActiveBanner && (
+        {primaryOrder && showActiveBanner && activeView !== 'status' && (
           <div className="bg-[var(--color-golden)]/10 border-t border-[var(--color-golden)]">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between text-[var(--color-golden)]">
               <span className="text-sm font-semibold">You have an active order in progress.</span>
@@ -235,9 +250,8 @@ export default function OrderingSystem() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <CustomerView
           tableId={tableId}
-          showStatus={showStatus}
-          onHideStatus={() => setShowStatus(false)}
-          onShowStatus={handleViewStatus}
+          activeView={activeView}
+          onNavigate={navigateToView}
           activeOrders={activeOrders}
           onActiveOrderUpdate={mergeActiveOrder}
           onActiveOrderClear={clearActiveOrderById}
@@ -265,23 +279,20 @@ function LangButton({ code, label }) {
   );
 }
 
-function CartBadge({ count }) {
+function CartBadge({ count, onClick }) {
   if (!count) return null;
   return (
-    <div
+    <button
+      type="button"
       className="relative cursor-pointer select-none"
       aria-label={`Items in cart: ${count}`}
-      role="button"
-      onClick={() => {
-        const el = document.getElementById("cart-panel");
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }}
+      onClick={onClick}
     >
       <ShoppingCart size={22} className="text-[var(--color-golden)]" />
       <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full bg-[var(--color-golden)] text-[#0c0c0c]">
         {count}
       </span>
-    </div>
+    </button>
   );
 }
 

@@ -3,7 +3,7 @@ import { useApi } from "../ApiProvider";
 import MenuItem from "../components/MenuItem";
 import CartView from "../components/CartView";
 import OrderStatusDisplay from "../components/OrderStatusDisplay";
-import { ChevronDown, Plus, Minus, Check, SlidersHorizontal } from "lucide-react";
+import { Plus, Minus, Check } from "lucide-react";
 import { getParentIcon } from "../utils/parentIcons";
 import { useTranslation } from "react-i18next";
 import { formatCurrency } from "../utils/format";
@@ -24,9 +24,8 @@ import {
 
 export default function CustomerView({
   tableId,
-  showStatus = true,
-  onHideStatus,
-  onShowStatus,
+  activeView = "menu",
+  onNavigate,
   activeOrders = [],
   onActiveOrderUpdate,
   onActiveOrderClear,
@@ -35,8 +34,8 @@ export default function CustomerView({
   const dispatch = useDispatch();
   const cart = useSelector(selectCartItems);
   const orderStatusFromStore = useSelector(selectCurrentOrder);
-  const [openParent, setOpenParent] = useState(null);
-  const [openCategory, setOpenCategory] = useState(null);
+  const [selectedParent, setSelectedParent] = useState(null);
+  const [activeCategory, setActiveCategory] = useState("__all__");
   const [customizingItem, setCustomizingItem] = useState(null);
   const api = useApi();
   const [toast, setToast] = useState(null);
@@ -114,6 +113,74 @@ export default function CustomerView({
 
   // Menu is now loaded via React Query
 
+  const categoriesForSelectedParent = React.useMemo(() => {
+    if (!selectedParent) return [];
+    const group = groupedCategories.find((g) => g.key === selectedParent);
+    return group?.categories || [];
+  }, [groupedCategories, selectedParent]);
+
+  useEffect(() => {
+    if (!parentGroupsFromServer.length) {
+      setSelectedParent(null);
+      return;
+    }
+    setSelectedParent((prev) => {
+      if (prev && parentGroupsFromServer.some((pg) => pg.key === prev)) {
+        return prev;
+      }
+      return parentGroupsFromServer[0].key;
+    });
+  }, [parentGroupsFromServer]);
+
+  useEffect(() => {
+    if (!categoriesForSelectedParent.length) {
+      setActiveCategory(null);
+      return;
+    }
+    setActiveCategory((prev) =>
+      prev === "__all__"
+        ? "__all__"
+        : prev && categoriesForSelectedParent.includes(prev)
+        ? prev
+        : categoriesForSelectedParent[0]
+    );
+  }, [categoriesForSelectedParent]);
+
+  const categoriesToDisplay = React.useMemo(() => {
+    if (!selectedParent) return [];
+    if (!categoriesForSelectedParent.length) return [];
+    if (activeCategory === "__all__" || !activeCategory) {
+      return categoriesForSelectedParent;
+    }
+    return categoriesForSelectedParent.includes(activeCategory)
+      ? [activeCategory]
+      : [];
+  }, [activeCategory, categoriesForSelectedParent, selectedParent]);
+
+  const hasParentGroups = parentGroupsFromServer.length > 0;
+
+  const goToMenu = () => {
+    if (typeof onNavigate === "function") {
+      onNavigate("menu");
+    }
+  };
+
+  const goToCart = () => {
+    if (typeof onNavigate === "function") {
+      onNavigate("cart");
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const goToStatus = () => {
+    if (typeof onNavigate === "function") {
+      onNavigate("status");
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cartItemCount = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
   useEffect(() => {
     const handleStatusUpdate = (updatedOrder) => {
       if (!updatedOrder?.id) return;
@@ -157,14 +224,9 @@ export default function CustomerView({
     if (typeof onActiveOrderUpdate === "function") {
       onActiveOrderUpdate(newOrder);
     }
+    goToStatus();
     showToast(t("toast.placed"));
     setIsPlacing(false);
-  };
-
-  const handleCategoryToggle = (category) => {
-    setOpenCategory((prevOpenCategory) =>
-      prevOpenCategory === category ? null : category
-    );
   };
 
   const handleQuantityChange = (cartItem, amount) => {
@@ -188,168 +250,310 @@ export default function CustomerView({
         </p>
       </div>
     );
-  if (showStatus && hasActiveOrders)
-    return (
-      <div className="space-y-8">
-        {activeOrders.map((order) => (
+
+  const toastElement =
+    toast && (
+      <div className="fixed top-6 right-6 z-50">
+        <div className="bg-[var(--color-golden)] text-[#0c0c0c] px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 font-semibold tracking-wide">
+          <Plus size={18} className="opacity-70" />
+          <span className="text-sm uppercase">{toast.message}</span>
+        </div>
+      </div>
+    );
+
+  if (activeView === "status") {
+    if (hasActiveOrders) {
+      return (
+        <div className="space-y-8">
+          {toastElement}
+          {activeOrders.map((order) => (
+            <OrderStatusDisplay
+              key={order.id}
+              order={order}
+              setOrderStatus={() => {
+                if (typeof onActiveOrderClear === "function") {
+                  onActiveOrderClear(order.id);
+                }
+              }}
+              onBackToMenu={goToMenu}
+              onFeedbackSubmitted={(id) => {
+                if (typeof onActiveOrderClear === "function") {
+                  onActiveOrderClear(id);
+                }
+              }}
+            />
+          ))}
+        </div>
+      );
+    }
+    if (primaryOrder) {
+      return (
+        <div className="space-y-6">
+          {toastElement}
           <OrderStatusDisplay
-            key={order.id}
-            order={order}
+            order={primaryOrder}
             setOrderStatus={() => {
-              if (typeof onActiveOrderClear === "function") {
-                onActiveOrderClear(order.id);
+              if (typeof onActiveOrderClear === "function" && primaryOrder?.id) {
+                onActiveOrderClear(primaryOrder.id);
               }
             }}
-            onBackToMenu={onHideStatus}
+            onBackToMenu={goToMenu}
             onFeedbackSubmitted={(id) => {
               if (typeof onActiveOrderClear === "function") {
                 onActiveOrderClear(id);
               }
             }}
           />
-        ))}
+        </div>
+      );
+    }
+    return (
+      <div className="max-w-2xl mx-auto text-center space-y-6 bg-white p-8 rounded-2xl shadow-xl">
+        {toastElement}
+        <h3 className="text-2xl font-semibold text-slate-800">
+          {t('status.no_active', 'No active orders to display.')}
+        </h3>
+        <button
+          type="button"
+          onClick={goToMenu}
+          className="px-4 py-2 rounded-md bg-indigo-600 text-white font-semibold hover:bg-indigo-700"
+        >
+          {t('common.back_to_menu', 'Back to menu')}
+        </button>
       </div>
     );
-  if (showStatus && primaryOrder)
+  }
+
+  if (activeView === "cart") {
     return (
-      <OrderStatusDisplay
-        order={primaryOrder}
-        setOrderStatus={() => {
-          if (typeof onActiveOrderClear === "function" && primaryOrder?.id) {
-            onActiveOrderClear(primaryOrder.id);
-          }
-        }}
-        onBackToMenu={onHideStatus}
-        onFeedbackSubmitted={(id) => {
-          if (typeof onActiveOrderClear === "function") {
-            onActiveOrderClear(id);
-          }
-        }}
-      />
+      <div className="max-w-4xl mx-auto w-full space-y-6">
+        {toastElement}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <button
+            type="button"
+            onClick={goToMenu}
+            className="px-3 py-2 rounded-md border border-[var(--color-border)] text-sm text-[var(--color-golden)] hover:border-[var(--color-golden)]"
+          >
+            {t('common.back_to_menu', 'Back to menu')}
+          </button>
+          {hasActiveOrders && (
+            <button
+              type="button"
+              onClick={goToStatus}
+              className="px-3 py-2 rounded-md bg-[var(--color-golden)] text-[#0c0c0c] text-sm font-semibold"
+            >
+              {t('view_order', 'View status')}
+            </button>
+          )}
+        </div>
+        <CartView
+          cart={cart}
+          updateQuantity={handleQuantityChange}
+          total={total}
+          placeOrder={placeOrder}
+          isLoading={isPlacing}
+        />
+      </div>
     );
+  }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
-      {toast && (
-        <div className="fixed top-6 right-6 z-50">
-          <div className="bg-[var(--color-golden)] text-[#0c0c0c] px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 font-semibold tracking-wide">
-            <Plus size={18} className="opacity-70" />
-            <span className="text-sm uppercase">{toast.message}</span>
-          </div>
-        </div>
-      )}
-      <div className="lg:col-span-2 space-y-6">
-        {primaryOrder && !showStatus && (
+    <>
+      <div className="space-y-6">
+        {toastElement}
+        {primaryOrder && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-amber-100 border border-amber-300 text-amber-900 px-4 py-3 rounded-lg">
             <span className="text-sm font-semibold">
               {t('status.waiting')} – {t('order_id', { id: primaryOrder.id })}
             </span>
             <button
               type="button"
-              onClick={() => {
-                if (onShowStatus) onShowStatus();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
+              onClick={goToStatus}
               className="px-3 py-1 text-xs font-bold rounded-md bg-amber-500 text-white shadow hover:bg-amber-600"
             >
               {t('view_order', 'View status')}
             </button>
           </div>
         )}
-        <div className="text-center lg:text-left">
-          <h2 className="text-[46px] leading-[1.1] text-[var(--color-golden)]">
-            {t("menu_title")}
-          </h2>
-          <p className="mt-2 text-base text-[var(--color-muted)]">
-            {t("menu_table_text", { tableId })}
-          </p>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="text-center lg:text-left">
+            <h2 className="text-[46px] leading-[1.1] text-[var(--color-golden)]">
+              {t("menu_title")}
+            </h2>
+            <p className="mt-2 text-base text-[var(--color-muted)]">
+              {t("menu_table_text", { tableId })}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={goToCart}
+            disabled={cartItemCount === 0}
+            className={`self-end px-5 py-2 rounded-full text-sm font-semibold uppercase tracking-wide transition ${
+              cartItemCount === 0
+                ? 'bg-white/10 border border-[var(--color-border)] text-[var(--color-muted)] cursor-not-allowed'
+                : 'bg-[var(--color-golden)] text-[#0c0c0c] shadow hover:-translate-y-0.5 hover:shadow-lg'
+            }`}
+          >
+            {t('cart.view', 'View cart')} ({cartItemCount})
+          </button>
         </div>
         {isMenuLoading ? (
           <p>{t("loading_menu")}</p>
         ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {groupedCategories.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => {
-                    setOpenParent((prev) => (prev === key ? null : key));
-                    setOpenCategory(null);
-                  }}
-                  className={`flex items-center justify-between rounded-xl border border-[var(--color-border)] px-4 py-3 bg-white/5 hover:bg-white/10 transition-colors ${
-                    openParent === key ? 'ring-1 ring-[var(--color-golden)]' : ''
-                  }`}
-                >
-                  <span className="flex items-center gap-2 text-[var(--color-golden)] font-semibold">
-                    {(() => { const Icon = getParentIcon(key); return <Icon size={18} />; })()}
-                    {label}
-                  </span>
-                  <ChevronDown
-                    className={`text-[var(--color-golden)]/80 transform transition-transform duration-300 ${
-                      openParent === key ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-
-            {openParent && (
-              <div className="mt-2 space-y-3">
-                {(groupedCategories.find((g) => g.key === openParent)?.categories || []).length === 0 ? (
-                  <p className="text-sm text-[var(--color-muted)]">{t('no_items')}</p>
-                ) : (
-                  groupedCategories
-                    .find((g) => g.key === openParent)
-                    .categories.map((category) => (
-                      <div
-                        key={category}
-                        className="bg-black/10 rounded-xl border border-[var(--color-border)] overflow-hidden"
-                      >
+          <div className="space-y-6">
+            {hasParentGroups ? (
+              <>
+                <div className="overflow-x-auto">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    {parentGroupsFromServer.map(({ key, label }) => {
+                      const Icon = getParentIcon(key);
+                      const isActive = selectedParent === key;
+                      return (
                         <button
-                          onClick={() => handleCategoryToggle(category)}
-                          className="w-full flex justify-between items-center p-4 hover:bg-white/5 transition-colors"
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setSelectedParent(key);
+                            setActiveCategory("__all__");
+                          }}
+                          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold tracking-wide uppercase transition-all ${
+                            isActive
+                              ? 'bg-[var(--color-golden)] text-[#0c0c0c] border-[var(--color-golden)] shadow'
+                              : 'border-[rgba(220,202,135,0.35)] text-[var(--color-golden)] hover:border-[var(--color-golden)]'
+                          }`}
                         >
-                          <h3 className="text-[20px] text-[var(--color-golden)]">{category}</h3>
-                          <ChevronDown
-                            className={`text-[var(--color-golden)]/70 transform transition-transform duration-300 ${
-                              openCategory === category ? 'rotate-180' : ''
-                            }`}
-                          />
+                          <Icon size={18} />
+                          {label}
                         </button>
-                        {openCategory === category && (
-                          <div className="p-4 border-t border-[var(--color-border)]">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                              {menu
-                                .filter((item) => item.category === category)
-                                .map((item) => (
-                                  <MenuItem
-                                    key={item.id}
-                                    item={item}
-                                    onCustomize={() => setCustomizingItem(item)}
-                                    onAddToCart={handleAddToCart}
-                                  />
-                                ))}
-                            </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {selectedParent && (
+                  <div className="space-y-6">
+                    {categoriesForSelectedParent.length === 0 ? (
+                      <p className="text-sm text-[var(--color-muted)]">
+                        {t('no_items')}
+                      </p>
+                    ) : (
+                      <>
+                        <div className="overflow-x-auto">
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            {categoriesForSelectedParent.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => setActiveCategory("__all__")}
+                                className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition ${
+                                  activeCategory === "__all__" || !activeCategory
+                                    ? 'bg-[var(--color-golden)] text-[#0c0c0c]'
+                                    : 'bg-white/10 border border-[var(--color-border)] text-[var(--color-golden)] hover:bg-white/15'
+                                }`}
+                              >
+                                {t('menu.all', 'All')}
+                              </button>
+                            )}
+                            {categoriesForSelectedParent.map((category) => {
+                              const isCategoryActive =
+                                activeCategory === category ||
+                                (activeCategory === "__all__" && categoriesForSelectedParent.length === 1) ||
+                                (!activeCategory && categoriesForSelectedParent[0] === category);
+                              return (
+                                <button
+                                  key={category}
+                                  type="button"
+                                  onClick={() => setActiveCategory(category)}
+                                  className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition ${
+                                    isCategoryActive
+                                      ? 'bg-white text-[#0c0c0c]'
+                                      : 'bg-white/10 border border-[var(--color-border)] text-[var(--color-golden)] hover:bg-white/15'
+                                  }`}
+                                >
+                                  {category}
+                                </button>
+                              );
+                            })}
                           </div>
-                        )}
-                      </div>
-                    ))
+                        </div>
+
+                        <div className="space-y-10">
+                          {categoriesToDisplay.map((category) => {
+                            const itemsForCategory = menu.filter(
+                              (item) => item.category === category
+                            );
+                            if (itemsForCategory.length === 0) return null;
+                            return (
+                              <section key={category} className="space-y-4">
+                                <header className="flex items-baseline justify-between">
+                                  <h3 className="text-2xl font-semibold text-[var(--color-golden)]">
+                                    {category}
+                                  </h3>
+                                  {categoriesForSelectedParent.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveCategory("__all__")}
+                                      className="text-xs uppercase tracking-wide text-[var(--color-muted)] hover:text-[var(--color-golden)]"
+                                    >
+                                      {t('common.view_all', 'View all')}
+                                    </button>
+                                  )}
+                                </header>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                  {itemsForCategory.map((item) => (
+                                    <MenuItem
+                                      key={item.id}
+                                      item={item}
+                                      onCustomize={() => setCustomizingItem(item)}
+                                      onAddToCart={handleAddToCart}
+                                    />
+                                  ))}
+                                </div>
+                              </section>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="space-y-10">
+                {categories.length === 0 ? (
+                  <p className="text-sm text-[var(--color-muted)]">
+                    {t('no_items')}
+                  </p>
+                ) : (
+                  categories.map((category) => {
+                    const key = category || '__uncategorized__';
+                    const label = category || t('menu.uncategorized', 'Uncategorized');
+                    const itemsForCategory = menu.filter((item) =>
+                      category ? item.category === category : !item.category
+                    );
+                    if (itemsForCategory.length === 0) return null;
+                    return (
+                      <section key={key} className="space-y-4">
+                        <h3 className="text-2xl font-semibold text-[var(--color-golden)]">
+                          {label}
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                          {itemsForCategory.map((item) => (
+                            <MenuItem
+                              key={item.id}
+                              item={item}
+                              onCustomize={() => setCustomizingItem(item)}
+                              onAddToCart={handleAddToCart}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })
                 )}
               </div>
             )}
           </div>
         )}
-      </div>
-      <div className="lg:col-span-1" id="cart-panel">
-        <div className="sticky top-28">
-          <CartView
-            cart={cart}
-            updateQuantity={handleQuantityChange}
-            total={total}
-            placeOrder={placeOrder}
-            isLoading={isPlacing}
-          />
-        </div>
       </div>
       {customizingItem && (
         <CustomizationModal
@@ -358,7 +562,7 @@ export default function CustomerView({
           onClose={() => setCustomizingItem(null)}
         />
       )}
-    </div>
+    </>
   );
 }
 

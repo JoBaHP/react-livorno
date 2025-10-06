@@ -9,12 +9,18 @@ import {
 } from "lucide-react";
 import { playNotificationSound } from "../audio";
 import { useApi } from "../ApiProvider";
-import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '../utils/format';
+import { useTranslation } from "react-i18next";
+import { formatCurrency } from "../utils/format";
 
-export default function OrderStatusDisplay({ order, setOrderStatus }) {
+export default function OrderStatusDisplay({
+  order,
+  setOrderStatus,
+  onBackToMenu,
+  onFeedbackSubmitted,
+}) {
   const { t } = useTranslation();
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const feedbackHandledRef = useRef(false);
   const prevStatusRef = useRef();
 
   useEffect(() => {
@@ -31,20 +37,24 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
   }
 
   if (feedbackSubmitted) {
+    if (!feedbackHandledRef.current && typeof onFeedbackSubmitted === "function") {
+      feedbackHandledRef.current = true;
+      onFeedbackSubmitted(order?.id);
+    }
     return (
       <div className="max-w-2xl mx-auto text-center bg-white p-8 rounded-2xl shadow-xl animate-fade-in">
         <div className="flex flex-col items-center gap-4 text-green-500">
           <CheckCircle size={64} className="animate-bounce" />
-          <h2 className="text-3xl font-bold text-slate-800">{t('thank_you')}</h2>
-          <p className="text-lg text-slate-600">
-            {t('feedback_received')}
-          </p>
+          <h2 className="text-3xl font-bold text-slate-800">
+            {t("thank_you")}
+          </h2>
+          <p className="text-lg text-slate-600">{t("feedback_received")}</p>
         </div>
         <button
           onClick={() => setOrderStatus(null)}
           className="mt-8 bg-amber-400 text-white py-3 px-8 rounded-lg font-semibold hover:bg-amber-500 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
         >
-          {t('start_new_order')}
+          {t("start_new_order")}
         </button>
       </div>
     );
@@ -58,29 +68,39 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
   const getStatusInfo = () => {
     switch (order.status) {
       case "pending":
-        return { text: t('status.waiting'), icon: <Clock size={32} /> };
+        return { text: t("status.waiting"), icon: <Clock size={32} /> };
       case "accepted":
-        return { text: t('status.accepted'), icon: <CheckCircle size={32} /> };
+        return { text: t("status.accepted"), icon: <CheckCircle size={32} /> };
       case "preparing":
-        return { text: t('status.preparing'), icon: <ChefHat size={32} /> };
+        return { text: t("status.preparing"), icon: <ChefHat size={32} /> };
       case "ready":
         return {
-          text: t('status.ready'),
+          text: t("status.ready"),
           icon: <UtensilsCrossed size={32} />,
         };
       case "declined":
-        return { text: t('status.declined'), icon: <X size={32} /> };
+        return { text: t("status.declined"), icon: <X size={32} /> };
       default:
-        return { text: t('status.unknown'), icon: <Clock size={32} /> };
+        return { text: t("status.unknown"), icon: <Clock size={32} /> };
     }
   };
   const { text, icon } = getStatusInfo();
 
+  const handleBackToMenu = () => {
+    if (onBackToMenu) {
+      onBackToMenu();
+    } else if (typeof setOrderStatus === "function") {
+      setOrderStatus(null);
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-xl animate-fade-in">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-slate-800 mb-2">{t('order_in')}</h2>
-        <p className="text-slate-600 mb-8">{t('order_id', { id: order.id })}</p>
+        <h2 className="text-3xl font-bold text-slate-800 mb-2">
+          {t("order_in")}
+        </h2>
+        <p className="text-slate-600 mb-8">{t("order_id", { id: order.id })}</p>
       </div>
 
       <div className="bg-slate-50 p-6 rounded-xl text-center mb-8">
@@ -89,7 +109,9 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
           <span>{text}</span>
         </div>
         {waitTimeDisplay && (
-          <p className="text-slate-600 mt-2">{t('estimated_wait', { minutes: waitTimeDisplay })}</p>
+          <p className="text-slate-600 mt-2">
+            {t("estimated_wait", { minutes: waitTimeDisplay })}
+          </p>
         )}
       </div>
 
@@ -128,7 +150,9 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
       </div>
 
       <div>
-        <h4 className="font-bold text-lg mb-2 text-slate-700">{t('order_summary')}</h4>
+        <h4 className="font-bold text-lg mb-2 text-slate-700">
+          {t("order_summary")}
+        </h4>
         <ul className="text-left divide-y divide-slate-200">
           {order.items.map((item, index) => (
             <li
@@ -138,21 +162,23 @@ export default function OrderStatusDisplay({ order, setOrderStatus }) {
               <span>
                 {item.quantity} x {item.name} {item.size && `(${item.size})`}
               </span>
-              <span>{formatCurrency(parseFloat(item.price || 0) * item.quantity)}</span>
+              <span>
+                {formatCurrency(parseFloat(item.price || 0) * item.quantity)}
+              </span>
             </li>
           ))}
         </ul>
         <div className="font-bold text-xl flex justify-between mt-4 pt-4 border-t text-slate-800">
-          <span>{t('total')}:</span>
+          <span>{t("total")}:</span>
           <span>{formatCurrency(orderTotal)}</span>
         </div>
       </div>
       <div className="text-center">
         <button
-          onClick={() => setOrderStatus(null)}
+          onClick={handleBackToMenu}
           className="mt-8 bg-slate-200 text-slate-700 py-2 px-6 rounded-lg font-semibold hover:bg-slate-300 transition-colors"
         >
-          {t('back_to_menu')}
+          {t("back_to_menu")}
         </button>
       </div>
     </div>
@@ -169,7 +195,7 @@ function FeedbackForm({ order, setFeedbackSubmitted }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (rating === 0) {
-      alert(t('feedback_select_rating'));
+      alert(t("feedback_select_rating"));
       return;
     }
     await api.submitFeedback(order.id, rating, comment);
@@ -178,8 +204,10 @@ function FeedbackForm({ order, setFeedbackSubmitted }) {
 
   return (
     <div className="max-w-2xl mx-auto text-center bg-white p-8 rounded-2xl shadow-xl animate-fade-in">
-      <h2 className="text-3xl font-bold text-slate-800 mb-2">{t('feedback_title')}</h2>
-      <p className="text-slate-600 mb-6">{t('feedback_help')}</p>
+      <h2 className="text-3xl font-bold text-slate-800 mb-2">
+        {t("feedback_title")}
+      </h2>
+      <p className="text-slate-600 mb-6">{t("feedback_help")}</p>
       <form onSubmit={handleSubmit}>
         <div className="flex justify-center my-4">
           {[...Array(5)].map((_, index) => {
@@ -208,14 +236,14 @@ function FeedbackForm({ order, setFeedbackSubmitted }) {
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder={t('feedback_placeholder')}
-          className="w-full p-3 border border-slate-300 rounded-lg h-24 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+          placeholder={t("feedback_placeholder")}
+          className="w-full p-3 border border-slate-300 rounded-lg h-24 focus:ring-2 text-black focus:ring-amber-400 focus:border-amber-400"
         ></textarea>
         <button
           type="submit"
           className="mt-4 bg-green-500 text-white py-3 px-6 rounded-lg font-bold text-lg hover:bg-green-600 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
         >
-          {t('feedback_submit')}
+          {t("feedback_submit")}
         </button>
       </form>
     </div>

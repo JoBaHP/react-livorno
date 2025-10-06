@@ -1,7 +1,20 @@
 @import "tailwindcss";
 
+:root {
+  --color-golden: #dcca87;
+  --color-black: #0c0c0c;
+  --color-panel: #111418;
+  --color-muted: rgba(255, 255, 255, 0.65);
+  --color-border: rgba(220, 202, 135, 0.25);
+}
+
 body {
-  background-color: #f1f5f9;
+  background: radial-gradient(circle at top left, rgba(220, 202, 135, 0.12), transparent 45%),
+    radial-gradient(circle at bottom right, rgba(220, 202, 135, 0.12), transparent 50%),
+    #0c0c0c;
+  color: var(--color-muted);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.font-heading {}

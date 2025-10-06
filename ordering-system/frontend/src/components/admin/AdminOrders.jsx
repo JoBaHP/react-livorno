@@ -150,7 +150,7 @@ export default function AdminOrders() {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="bg-white p-6 rounded-lg shadow-md text-slate-800">
       <h3 className="text-xl font-bold mb-4">All Orders</h3>
       <div className="flex flex-wrap items-center gap-2 mb-6 p-4 bg-gray-50 rounded-lg">
         <FilterButton filter="all">All Time</FilterButton>
@@ -283,7 +283,7 @@ export default function AdminOrders() {
 function FeedbackModal({ order, onClose }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md">
+      <div className="bg-white text-slate-800 rounded-lg shadow-2xl p-6 w-full max-w-md">
         <h3 className="text-xl font-bold mb-4">
           Feedback for Order #{order.id}
         </h3>

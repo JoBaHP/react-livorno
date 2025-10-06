@@ -9,6 +9,9 @@ async function ensureCategoryTableExists() {
     name VARCHAR(255) UNIQUE NOT NULL,
     sort_order INT NOT NULL
   )`);
+  await db.query(
+    "ALTER TABLE IF EXISTS menu_categories ADD COLUMN IF NOT EXISTS parent_key VARCHAR(32) NOT NULL DEFAULT 'food'"
+  );
   categoryTableChecked = true;
 }
 
@@ -158,6 +161,30 @@ exports.getMenu = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getMenuCategories = async (req, res) => {
+  try {
+    await syncCategoriesFromMenuItems();
+    const { rows } = await db.query(
+      "SELECT name, sort_order, parent_key FROM menu_categories ORDER BY sort_order ASC, name ASC"
+    );
+    const categories = rows.map((row) => ({
+      name: row.name,
+      sortOrder: row.sort_order,
+      parentKey: row.parent_key,
+    }));
+    const { rows: uncategorizedCheck } = await db.query(
+      "SELECT EXISTS (SELECT 1 FROM menu_items WHERE category IS NULL) AS has_uncategorized"
+    );
+    if (uncategorizedCheck[0]?.has_uncategorized) {
+      categories.push({ name: null, sortOrder: null, parentKey: 'food' });
+    }
+    res.json({ categories });
+  } catch (err) {
+    console.error('Error fetching menu categories:', err);
+    res.status(500).json({ message: 'Failed to fetch menu categories' });
   }
 };
 

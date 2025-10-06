@@ -37,6 +37,19 @@ export const ApiProvider = ({ children }) => {
       }
       return response.json();
     },
+    getMenuCategories: async () => {
+      const response = await fetch(`${API_URL}/api/menu/categories`, fetchOptions);
+      return response.json();
+    },
+    updateCategoryParents: async (assignments) => {
+      const response = await fetch(`${API_URL}/api/menu/categories/parents`, {
+        ...fetchOptions,
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignments }),
+      });
+      return response.json();
+    },
     addMenuItem: async (item) => {
       const response = await fetch(`${API_URL}/api/menu`, {
         ...fetchOptions,

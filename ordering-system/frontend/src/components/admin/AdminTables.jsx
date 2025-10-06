@@ -20,7 +20,7 @@ export default function AdminTables() {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="bg-white p-6 rounded-lg shadow-md text-slate-800">
       <h3 className="text-xl font-bold mb-4">Table QR Codes</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
         {tables.map((table) => (

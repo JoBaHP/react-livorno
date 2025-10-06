@@ -46,7 +46,7 @@ export default function AdminOptions() {
   const freeOptions = options.filter((opt) => parseFloat(opt.price) === 0);
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="bg-white p-6 rounded-lg shadow-md text-slate-800">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-bold">{t('admin_options.title')}</h3>
         <button
@@ -153,7 +153,7 @@ function OptionForm({ option, onSave, onCancel }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md"
+        className="bg-white text-slate-800 rounded-lg shadow-2xl p-6 w-full max-w-md"
       >
         <h3 className="text-xl font-bold mb-4">
           {option.id ? "Edit" : "Add"} Option

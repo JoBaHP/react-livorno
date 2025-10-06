@@ -174,7 +174,7 @@ export default function MenuItemForm({ item, onSave, onCancel }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-lg max-h-full overflow-y-auto">
+      <div className="bg-white text-slate-800 rounded-lg shadow-2xl p-6 w-full max-w-lg max-h-full overflow-y-auto">
         <h2 className="text-2xl font-bold mb-4">
           {item?.id ? "Edit" : "Add"} Menu Item
         </h2>

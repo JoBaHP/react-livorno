@@ -50,7 +50,7 @@ export default function AdminStreets() {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="bg-white p-6 rounded-lg shadow-md text-slate-800">
       <h3 className="text-xl font-bold mb-4">{t('admin_streets.title')}</h3>
       <form
         onSubmit={handlePopulateStreets}

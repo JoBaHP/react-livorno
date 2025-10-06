@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { formatCurrency } from '../utils/format';
+import { formatCurrency } from "../utils/format";
 import {
   MessageSquare,
   CreditCard,
@@ -102,11 +102,7 @@ export default function OrderCard({ order, onUpdate }) {
     options.map((opt) => {
       const price = parseFloat(opt.price || 0);
       const rawQty = Number(opt.quantity);
-      const quantity = Number.isFinite(rawQty)
-        ? rawQty
-        : price > 0
-        ? 1
-        : 0;
+      const quantity = Number.isFinite(rawQty) ? rawQty : price > 0 ? 1 : 0;
       return {
         ...opt,
         price,
@@ -146,7 +142,10 @@ export default function OrderCard({ order, onUpdate }) {
   const deliveryFee = isDelivery
     ? (() => {
         const recordedFee = parseFloat(
-          order.delivery_fee || order.deliveryFee || order.delivery_fee_amount || 0
+          order.delivery_fee ||
+            order.deliveryFee ||
+            order.delivery_fee_amount ||
+            0
         );
         if (!Number.isNaN(recordedFee) && recordedFee > 0) {
           return recordedFee;
@@ -157,7 +156,7 @@ export default function OrderCard({ order, onUpdate }) {
 
   return (
     <div
-      className={`bg-white p-4 rounded-lg shadow-md border-l-4 ${
+      className={`bg-white text-black p-4 rounded-lg shadow-md border-l-4 ${
         statusStyles[order.status]
       }`}
     >
@@ -213,41 +212,41 @@ export default function OrderCard({ order, onUpdate }) {
 
       <ul className="mt-2 space-y-1 text-sm">
         {itemTotals.map(
-          (
-            { item, normalizedOptions, baseLineTotal, quantity },
-            index
-          ) => {
-          const displayOptions = normalizedOptions.filter((opt) =>
-            opt.price > 0 ? opt.quantity > 0 : true
-          );
-          return (
-            <li key={item.id || index}>
-              <div className="flex justify-between">
-                <span>
-                  {quantity} x {item.name} {item.size && `(${item.size})`}
-                </span>
-                <span>
-                  {formatCurrency(baseLineTotal)}
-                </span>
-              </div>
-              {displayOptions.length > 0 && (
-                <ul className="text-xs text-slate-500 pl-4 list-disc mt-1">
-                  {displayOptions.map((opt) => (
-                    <li key={opt.id}>
-                      {opt.name}
-                      {opt.price > 0 && (
-                        <>
-                          {" "}(+{formatCurrency(opt.price * opt.quantity || 0)}
-                          {quantity > 1 ? ` × ${quantity}` : ""})
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          );
-        })}
+          ({ item, normalizedOptions, baseLineTotal, quantity }, index) => {
+            const displayOptions = normalizedOptions.filter((opt) =>
+              opt.price > 0 ? opt.quantity > 0 : true
+            );
+            return (
+              <li key={item.id || index}>
+                <div className="flex justify-between">
+                  <span>
+                    {quantity} x {item.name} {item.size && `(${item.size})`}
+                  </span>
+                  <span>{formatCurrency(baseLineTotal)}</span>
+                </div>
+                {displayOptions.length > 0 && (
+                  <ul className="text-xs text-slate-500 pl-4 list-disc mt-1">
+                    {displayOptions.map((opt) => (
+                      <li key={opt.id}>
+                        {opt.name}
+                        {opt.price > 0 && (
+                          <>
+                            {" "}
+                            (+{formatCurrency(opt.price * opt.quantity || 0)}
+                            {quantity > 1 && (opt.quantity || 0) >= 1
+                              ? ` × ${quantity}`
+                              : ""}
+                            )
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          }
+        )}
         {isDelivery && deliveryFee > 0 && (
           <li className="flex justify-between pt-1 mt-1 border-t border-dashed">
             <span>Delivery Fee</span>

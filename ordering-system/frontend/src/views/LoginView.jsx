@@ -26,7 +26,7 @@ export default function LoginView() {
         setError(result.message || "Invalid credentials");
       }
     } catch (err) {
-      setError("An unexpected error occurred.");
+      setError("An unexpected error occurred. ", err);
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +66,7 @@ export default function LoginView() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="text-black w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
           </div>
@@ -82,7 +82,7 @@ export default function LoginView() {
               type={isPasswordVisible ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="text-black w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
             <button

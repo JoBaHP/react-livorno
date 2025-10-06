@@ -62,74 +62,58 @@ export default function CustomerView({
     };
   }, [toast]);
 
-  const { data: rawMenu, isLoading: isMenuLoading } = useQuery({
+  const { data: menu = [], isLoading: isMenuLoading } = useQuery({
     queryKey: ["menu"],
     queryFn: () => api.getMenu(),
   });
-  const { data: rawCategoriesInfo } = useQuery({
+  const { data: categoriesInfo = [] } = useQuery({
     queryKey: ["menu-categories"],
     queryFn: () => api.getMenuCategories(),
   });
-
-  const menu = React.useMemo(() => {
-    if (Array.isArray(rawMenu)) return rawMenu;
-    if (rawMenu && Array.isArray(rawMenu.items)) return rawMenu.items;
-    return [];
-  }, [rawMenu]);
-
-  const categoriesInfo = React.useMemo(() => {
-    if (Array.isArray(rawCategoriesInfo)) return rawCategoriesInfo;
-    if (rawCategoriesInfo && Array.isArray(rawCategoriesInfo.categories)) {
-      return rawCategoriesInfo.categories;
-    }
-    return [];
-  }, [rawCategoriesInfo]);
   const [isPlacing, setIsPlacing] = useState(false);
   const total = useSelector(selectCartTotal);
   const hasActiveOrders = activeOrders.length > 0;
   const primaryOrder = hasActiveOrders ? activeOrders[0] : orderStatusFromStore;
 
-  const categoryOrder = React.useMemo(() => [
-    "Pizzas",
-    "Pasta",
-    "Salads",
-    "Desserts",
-    "Drinks",
-  ], []);
-
-  const categories = React.useMemo(() => {
-    const names = new Set();
-    menu.forEach((item) => {
-      const category = item?.category;
-      if (!category || typeof category !== 'string') return;
-      names.add(category);
-    });
-    return Array.from(names).sort((a, b) => {
+  const categoryOrder = ["Pizzas", "Pasta", "Salads", "Desserts", "Drinks"];
+  const categories = [...new Set(menu.map((item) => item.category))].sort(
+    (a, b) => {
       const indexA = categoryOrder.indexOf(a);
       const indexB = categoryOrder.indexOf(b);
-      if (indexA === -1 && indexB === -1) return a.localeCompare(b);
       if (indexA === -1) return 1;
       if (indexB === -1) return -1;
       return indexA - indexB;
-    });
-  }, [menu, categoryOrder]);
+    }
+  );
 
   // Derive parent groups dynamically from server categories
+  const normalisedCategories = React.useMemo(() => {
+    if (Array.isArray(categoriesInfo)) return categoriesInfo;
+    if (categoriesInfo && Array.isArray(categoriesInfo.categories)) {
+      return categoriesInfo.categories;
+    }
+    return [];
+  }, [categoriesInfo]);
+
   const parentKeys = React.useMemo(() => {
     const set = new Set();
-    (categoriesInfo || []).forEach((c) => set.add(c.parentKey || "food"));
+    normalisedCategories.forEach((c) => set.add(c.parentKey || "food"));
     if (set.size === 0) {
       set.add("food");
       set.add("drinks");
     }
     return Array.from(set);
-  }, [categoriesInfo]);
+  }, [normalisedCategories]);
   const parentGroupsFromServer = parentKeys.map((k) => ({
     key: k,
     label: t(`category_parent.${k}`, k.charAt(0).toUpperCase() + k.slice(1)),
   }));
-  const categoryToParent = new Map(
-    (categoriesInfo || []).map((c) => [c.name, c.parentKey || "food"])
+  const categoryToParent = React.useMemo(
+    () =>
+      new Map(
+        normalisedCategories.map((c) => [c.name, c.parentKey || "food"])
+      ),
+    [normalisedCategories]
   );
   const groupedCategories = parentGroupsFromServer.map((pg) => ({
     key: pg.key,

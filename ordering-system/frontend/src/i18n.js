@@ -5,13 +5,14 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 const resources = {
   en: {
     translation: {
-      app_title: 'Ristorante',
+      app_title: 'Livorno',
       // MenuItem
       customize: 'Customize',
       add: 'Add',
       image_not_found: 'Image Not Found',
       // CartView
       your_order: 'Your Order',
+      view_order: 'View Status',
       empty_cart: 'Your cart is empty.',
       total: 'Total',
       order_notes: 'Order Notes',
@@ -49,6 +50,12 @@ const resources = {
       start_new_order: 'Start New Order',
       back_to_menu: 'Back to Menu',
       order_summary: 'Order Summary',
+      toast: {
+        added: '{{name}}{{size}} added to cart',
+        increment: '{{name}} quantity increased',
+        decrement: '{{name}} quantity decreased',
+        placed: 'Thanks! Your order is on the way.',
+      },
       // Admin/Staff common
       staff_panel_title: 'Staff Panel',
       admin_panel: 'Admin Panel',
@@ -226,17 +233,23 @@ const resources = {
         qr_alt: 'QR Code for Table {{number}}',
         print: 'Print',
       },
+      // Parent category labels
+      category_parent: {
+        food: 'Food',
+        drinks: 'Drinks',
+      },
     },
   },
   sr: {
     translation: {
-      app_title: 'Ristorante',
+      app_title: 'Livorno',
       // MenuItem
       customize: 'Prilagodi',
       add: 'Dodaj',
       image_not_found: 'Slika nije pronađena',
       // CartView
       your_order: 'Vaša porudžbina',
+      view_order: 'Pogledaj status',
       empty_cart: 'Vaša korpa je prazna.',
       total: 'Ukupno',
       order_notes: 'Napomene za porudžbinu',
@@ -274,6 +287,12 @@ const resources = {
       start_new_order: 'Nova porudžbina',
       back_to_menu: 'Nazad na meni',
       order_summary: 'Pregled porudžbine',
+      toast: {
+        added: '{{name}}{{size}} je dodato u korpu',
+        increment: 'Povećana količina za {{name}}',
+        decrement: 'Smanjena količina za {{name}}',
+        placed: 'Hvala! Vaša porudžbina je prosleđena.',
+      },
       // Admin/Staff common
       staff_panel_title: 'Panel osoblja',
       admin_panel: 'Admin panel',
@@ -450,6 +469,11 @@ const resources = {
         table_label: 'Sto {{number}}',
         qr_alt: 'QR kod za sto {{number}}',
         print: 'Štampaj',
+      },
+      // Parent category labels
+      category_parent: {
+        food: 'Hrana',
+        drinks: 'Piće',
       },
     },
   },

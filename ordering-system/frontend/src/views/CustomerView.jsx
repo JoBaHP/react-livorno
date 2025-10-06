@@ -62,29 +62,50 @@ export default function CustomerView({
     };
   }, [toast]);
 
-  const { data: menu = [], isLoading: isMenuLoading } = useQuery({
+  const { data: rawMenu, isLoading: isMenuLoading } = useQuery({
     queryKey: ["menu"],
     queryFn: () => api.getMenu(),
   });
-  const { data: categoriesInfo = [] } = useQuery({
+  const { data: rawCategoriesInfo } = useQuery({
     queryKey: ["menu-categories"],
     queryFn: () => api.getMenuCategories(),
   });
+
+  const menu = React.useMemo(() => {
+    if (Array.isArray(rawMenu)) return rawMenu;
+    if (rawMenu && Array.isArray(rawMenu.items)) return rawMenu.items;
+    return [];
+  }, [rawMenu]);
+
+  const categoriesInfo = React.useMemo(() => {
+    if (Array.isArray(rawCategoriesInfo)) return rawCategoriesInfo;
+    if (rawCategoriesInfo && Array.isArray(rawCategoriesInfo.categories)) {
+      return rawCategoriesInfo.categories;
+    }
+    return [];
+  }, [rawCategoriesInfo]);
   const [isPlacing, setIsPlacing] = useState(false);
   const total = useSelector(selectCartTotal);
   const hasActiveOrders = activeOrders.length > 0;
   const primaryOrder = hasActiveOrders ? activeOrders[0] : orderStatusFromStore;
 
   const categoryOrder = ["Pizzas", "Pasta", "Salads", "Desserts", "Drinks"];
-  const categories = [...new Set(menu.map((item) => item.category))].sort(
-    (a, b) => {
+  const categories = React.useMemo(() => {
+    const names = new Set();
+    menu.forEach((item) => {
+      const category = item?.category;
+      if (!category || typeof category !== 'string') return;
+      names.add(category);
+    });
+    return Array.from(names).sort((a, b) => {
       const indexA = categoryOrder.indexOf(a);
       const indexB = categoryOrder.indexOf(b);
+      if (indexA === -1 && indexB === -1) return a.localeCompare(b);
       if (indexA === -1) return 1;
       if (indexB === -1) return -1;
       return indexA - indexB;
-    }
-  );
+    });
+  }, [menu]);
 
   // Derive parent groups dynamically from server categories
   const parentKeys = React.useMemo(() => {

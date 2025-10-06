@@ -15,8 +15,56 @@ export default function DeliveryMenu({
 }) {
   const { t } = useTranslation();
   const api = useApi();
-  const { data: menu = [], isLoading } = useQuery({ queryKey: ['menu'], queryFn: () => api.getMenu() });
-  const { data: categoriesInfo = [] } = useQuery({ queryKey: ['menu-categories'], queryFn: () => api.getMenuCategories() });
+  const { data: rawMenu, isLoading } = useQuery({
+    queryKey: ['menu'],
+    queryFn: () => api.getMenu(),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 30 * 60 * 1000,
+  });
+  const { data: rawCategoriesInfo } = useQuery({
+    queryKey: ['menu-categories'],
+    queryFn: () => api.getMenuCategories(),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 30 * 60 * 1000,
+  });
+
+  const [cachedMenu, setCachedMenu] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = window.localStorage.getItem('cached_delivery_menu');
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [cachedCategories, setCachedCategories] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = window.localStorage.getItem('cached_delivery_menu_categories');
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const menu = useMemo(() => {
+    if (Array.isArray(rawMenu)) return rawMenu;
+    if (rawMenu && Array.isArray(rawMenu.items)) return rawMenu.items;
+    if (cachedMenu.length) return cachedMenu;
+    return [];
+  }, [rawMenu, cachedMenu]);
+
+  const categoriesInfo = useMemo(() => {
+    if (Array.isArray(rawCategoriesInfo)) return rawCategoriesInfo;
+    if (rawCategoriesInfo && Array.isArray(rawCategoriesInfo.categories)) {
+      return rawCategoriesInfo.categories;
+    }
+    if (cachedCategories.length) return cachedCategories;
+    return [];
+  }, [rawCategoriesInfo, cachedCategories]);
+
   const [openParent, setOpenParent] = useState(null);
   const [openCategory, setOpenCategory] = useState(null);
   const [customizingItem, setCustomizingItem] = useState(null);
@@ -93,6 +141,28 @@ export default function DeliveryMenu({
       categories: categories.filter((cat) => (categoryToParent.get(cat) || 'food') === key),
     }))
   ), [parentKeys, categories, categoryToParent, t]);
+
+  useEffect(() => {
+    if (!menu.length) return;
+    setCachedMenu(menu);
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('cached_delivery_menu', JSON.stringify(menu));
+    } catch (err) {
+      console.warn('Failed to cache delivery menu', err);
+    }
+  }, [menu]);
+
+  useEffect(() => {
+    if (!categoriesInfo.length) return;
+    setCachedCategories(categoriesInfo);
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('cached_delivery_menu_categories', JSON.stringify(categoriesInfo));
+    } catch (err) {
+      console.warn('Failed to cache delivery categories', err);
+    }
+  }, [categoriesInfo]);
 
   // Menu is loaded via React Query
 

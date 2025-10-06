@@ -16,17 +16,58 @@ export default function DeliveryMenu({
 }) {
   const { t } = useTranslation();
   const api = useApi();
-  const { data: menu = [], isLoading } = useQuery({
+  const { data: rawMenu, isLoading } = useQuery({
     queryKey: ["menu"],
     queryFn: () => api.getMenu(),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 30 * 60 * 1000,
   });
-  const { data: categoriesInfo = [] } = useQuery({
+  const { data: rawCategoriesInfo } = useQuery({
     queryKey: ["menu-categories"],
     queryFn: () => api.getMenuCategories(),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 30 * 60 * 1000,
   });
+
+  const menu = useMemo(() => {
+    if (Array.isArray(rawMenu)) return rawMenu;
+    if (rawMenu && Array.isArray(rawMenu.items)) return rawMenu.items;
+    if (cachedMenu.length) return cachedMenu;
+    return [];
+  }, [rawMenu, cachedMenu]);
+
+  const categoriesInfo = useMemo(() => {
+    if (Array.isArray(rawCategoriesInfo)) return rawCategoriesInfo;
+    if (rawCategoriesInfo && Array.isArray(rawCategoriesInfo.categories)) {
+      return rawCategoriesInfo.categories;
+    }
+    if (cachedCategories.length) return cachedCategories;
+    return [];
+  }, [rawCategoriesInfo, cachedCategories]);
   const [selectedParent, setSelectedParent] = useState(null);
   const [activeCategory, setActiveCategory] = useState("__all__");
   const [customizingItem, setCustomizingItem] = useState(null);
+
+  const [cachedMenu, setCachedMenu] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = window.localStorage.getItem('cached_delivery_menu');
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [cachedCategories, setCachedCategories] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = window.localStorage.getItem('cached_delivery_menu_categories');
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Derive categories without hard-coding order.
   // Priority:
@@ -114,6 +155,30 @@ export default function DeliveryMenu({
     const group = grouped.find((g) => g.key === selectedParent);
     return group?.categories || [];
   }, [grouped, selectedParent]);
+
+  useEffect(() => {
+    if (!menu.length) return;
+    setCachedMenu(menu);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('cached_delivery_menu', JSON.stringify(menu));
+      } catch (err) {
+        console.warn('Failed to cache delivery menu', err);
+      }
+    }
+  }, [menu]);
+
+  useEffect(() => {
+    if (!categoriesInfo.length) return;
+    setCachedCategories(categoriesInfo);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('cached_delivery_menu_categories', JSON.stringify(categoriesInfo));
+      } catch (err) {
+        console.warn('Failed to cache delivery categories', err);
+      }
+    }
+  }, [categoriesInfo]);
 
   useEffect(() => {
     if (!grouped.length) {

@@ -89,7 +89,14 @@ export default function CustomerView({
   const hasActiveOrders = activeOrders.length > 0;
   const primaryOrder = hasActiveOrders ? activeOrders[0] : orderStatusFromStore;
 
-  const categoryOrder = ["Pizzas", "Pasta", "Salads", "Desserts", "Drinks"];
+  const categoryOrder = React.useMemo(() => [
+    "Pizzas",
+    "Pasta",
+    "Salads",
+    "Desserts",
+    "Drinks",
+  ], []);
+
   const categories = React.useMemo(() => {
     const names = new Set();
     menu.forEach((item) => {
@@ -105,7 +112,7 @@ export default function CustomerView({
       if (indexB === -1) return -1;
       return indexA - indexB;
     });
-  }, [menu]);
+  }, [menu, categoryOrder]);
 
   // Derive parent groups dynamically from server categories
   const parentKeys = React.useMemo(() => {

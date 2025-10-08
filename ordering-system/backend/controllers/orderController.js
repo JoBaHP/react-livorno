@@ -66,8 +66,14 @@ const formatCurrency = (value) => {
 
 const buildDeliveryAcceptanceMessage = (order, waitTimeMinutes) => {
   if (!order) return null;
-  const lines = [];
-  lines.push(`${restaurantName} delivery accepted`);
+  const lines = [`${restaurantName} delivery accepted`];
+  if (restaurantAddress) {
+    lines.push(`Pickup: ${restaurantAddress}`);
+  }
+  if (order.total !== undefined && order.total !== null) {
+    lines.push(`Bill: ${formatCurrency(order.total)}`);
+  }
+
   const waitMinutes = Number.isFinite(waitTimeMinutes)
     ? Math.max(waitTimeMinutes, 0)
     : null;
@@ -89,15 +95,6 @@ const buildDeliveryAcceptanceMessage = (order, waitTimeMinutes) => {
   }
   if (order.customer_address) {
     lines.push(`Address: ${order.customer_address}`);
-  }
-  if (restaurantAddress) {
-    lines.push(`Pickup: ${restaurantAddress}`);
-  }
-  if (order.total !== undefined && order.total !== null) {
-    lines.push(`Bill: ${formatCurrency(order.total)}`);
-  }
-  if (order.notes) {
-    lines.push(`Notes: ${order.notes}`);
   }
   return lines.join("\n");
 };

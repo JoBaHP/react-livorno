@@ -5,7 +5,8 @@ const DEFAULT_SSL = { rejectUnauthorized: false };
 // Determine SSL behavior in a robust, explicit way.
 // Priority:
 // 1) Respect DB_SSL env if provided ("true"/"false", 1/0, on/off, yes/no)
-// 2) If not provided, enable SSL only for non-local hosts when NODE_ENV=production
+// 2) Respect sslmode=disable/require directives in the connection string
+// 3) Enable SSL automatically for any non-local connection string
 function resolveSsl() {
   const raw = process.env.DB_SSL;
   if (raw !== undefined) {
@@ -15,10 +16,37 @@ function resolveSsl() {
     // Fallback to default behavior if unparsable
   }
 
-  const cs = process.env.DATABASE_URL || "";
-  const isLocal = /localhost|127\.0\.0\.1/i.test(cs);
-  const isProd = process.env.NODE_ENV === "production";
-  return isProd && !isLocal ? DEFAULT_SSL : false;
+  const cs = (process.env.DATABASE_URL || "").trim();
+  if (!cs) return false;
+
+  const loweredCs = cs.toLowerCase();
+  if (loweredCs.includes("sslmode=disable")) return false;
+  if (
+    loweredCs.includes("sslmode=require") ||
+    loweredCs.includes("sslmode=verify-ca") ||
+    loweredCs.includes("sslmode=verify-full")
+  ) {
+    return DEFAULT_SSL;
+  }
+
+  const isLocalHost = (hostname = "") => {
+    const lowerHost = hostname.toLowerCase();
+    return (
+      lowerHost === "localhost" ||
+      lowerHost === "127.0.0.1" ||
+      lowerHost === "::1" ||
+      lowerHost.endsWith(".local")
+    );
+  };
+
+  try {
+    const url = new URL(cs);
+    return isLocalHost(url.hostname) ? false : DEFAULT_SSL;
+  } catch (err) {
+    // Fallback to pattern checks if URL parsing fails (e.g., missing protocol)
+    const isLocal = /@(localhost|127\.0\.0\.1|::1)/i.test(cs);
+    return isLocal ? false : DEFAULT_SSL;
+  }
 }
 
 const sslOption = resolveSsl();

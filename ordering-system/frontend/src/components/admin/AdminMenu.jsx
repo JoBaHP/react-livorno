@@ -50,15 +50,29 @@ export default function AdminMenu() {
     queryFn: () => api.getMenuCategories(),
   });
 
+  const categoryList = useMemo(() => {
+    if (Array.isArray(categoriesData)) {
+      return categoriesData;
+    }
+    if (
+      categoriesData &&
+      typeof categoriesData === "object" &&
+      Array.isArray(categoriesData.categories)
+    ) {
+      return categoriesData.categories;
+    }
+    return [];
+  }, [categoriesData]);
+
   const parentKeys = useMemo(() => {
     const set = new Set();
-    (categoriesData || []).forEach((c) => set.add(c.parentKey || "food"));
+    categoryList.forEach((c) => set.add(c?.parentKey || "food"));
     if (set.size === 0) {
       set.add("food");
       set.add("drinks");
     }
     return Array.from(set);
-  }, [categoriesData]);
+  }, [categoryList]);
 
   const normalized = useMemo(() => {
     if (Array.isArray(data)) {
@@ -133,13 +147,16 @@ export default function AdminMenu() {
   }, [normalized.categories, t]);
 
   useEffect(() => {
-    if (!Array.isArray(categoriesData)) return;
+    if (categoryList.length === 0) {
+      setParentDraft({});
+      return;
+    }
     const draft = {};
-    categoriesData.forEach((c) => {
+    categoryList.forEach((c) => {
       if (c?.name) draft[c.name] = c.parentKey || "food";
     });
     setParentDraft(draft);
-  }, [categoriesData]);
+  }, [categoryList]);
 
   useEffect(() => {
     if (selectedCategory === "all" || categoryOptions.length === 0) return;
@@ -521,8 +538,8 @@ export default function AdminMenu() {
               )}
             </p>
             <div className="space-y-3 max-h-72 overflow-y-auto">
-              {Array.isArray(categoriesData) && categoriesData.length > 0 ? (
-                categoriesData.map((cat) => (
+              {categoryList.length > 0 ? (
+                categoryList.map((cat) => (
                   <div
                     key={cat.name}
                     className="flex items-center justify-between border rounded-md px-3 py-2"
@@ -595,7 +612,7 @@ export default function AdminMenu() {
               </h5>
               <div className="space-y-2">
                 {parentKeys.map((pkey) => {
-                  const count = (categoriesData || []).filter((c) => (c.parentKey || 'food') === pkey).length;
+                  const count = categoryList.filter((c) => (c.parentKey || 'food') === pkey).length;
                   return (
                     <div key={pkey} className="flex items-center justify-between text-sm border rounded-md px-3 py-2 bg-slate-50">
                       <span className="text-slate-700">
@@ -616,7 +633,7 @@ export default function AdminMenu() {
                           );
                           const targetKey = (target || '').trim();
                           if (!targetKey || targetKey === pkey) return;
-                          const affected = (categoriesData || []).filter((c) => (c.parentKey || 'food') === pkey);
+                          const affected = categoryList.filter((c) => (c.parentKey || 'food') === pkey);
                           const assignments = affected.map((c) => ({ name: c.name, parentKey: targetKey }));
                           if (assignments.length === 0) return;
                           try {

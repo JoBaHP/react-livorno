@@ -69,6 +69,35 @@ const transliterate = (text) => {
     .join("");
 };
 
+const FALLBACK_STREETS = [
+  "Bulevar Oslobođenja",
+  "Zmaj Jovina",
+  "Dunavska",
+  "Kralja Petra Prvog",
+  "Futoška",
+  "Narodnog fronta",
+  "Maksima Gorkog",
+  "Stražilovska",
+  "Jovana Subotića",
+  "Kisačka",
+  "Pasterova 2"
+].map((name, index) => ({
+  id: -(index + 1),
+  name,
+  name_normalized: transliterate(name),
+}));
+
+const normalizeTerm = (term = "") =>
+  transliterate(term).trim().toLowerCase();
+
+const getSeededStreetMatches = (term = "") => {
+  const needle = normalizeTerm(term);
+  if (!needle) return [];
+  return FALLBACK_STREETS.filter((street) =>
+    street.name_normalized.toLowerCase().includes(needle)
+  ).slice(0, 10);
+};
+
 exports.searchStreets = async (req, res) => {
   const { term } = req.query;
   if (!term || term.length < 2) {
@@ -81,6 +110,12 @@ exports.searchStreets = async (req, res) => {
     const { rows } = await db.query(query, params);
     res.json(rows);
   } catch (err) {
+    if (db.isConnectionError && db.isConnectionError(err)) {
+      console.warn(
+        "Street search failed due to database issue; serving fallback list"
+      );
+      return res.json(getSeededStreetMatches(term));
+    }
     console.error("Street search error:", err);
     res.status(500).json({ message: "Server error during street search" });
   }

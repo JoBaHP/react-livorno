@@ -61,11 +61,19 @@ const pool = new Pool({
     : false,
   max: Number.parseInt(process.env.DB_POOL_MAX || "10", 10),
   idleTimeoutMillis: Number.parseInt(
-    process.env.DB_IDLE_TIMEOUT_MS || "30000",
+    process.env.DB_IDLE_TIMEOUT_MS || "60000",
     10
   ),
   connectionTimeoutMillis: Number.parseInt(
-    process.env.DB_CONNECTION_TIMEOUT_MS || "10000",
+    process.env.DB_CONNECTION_TIMEOUT_MS || "20000",
+    10
+  ),
+  statement_timeout: Number.parseInt(
+    process.env.DB_STATEMENT_TIMEOUT_MS || "45000",
+    10
+  ),
+  query_timeout: Number.parseInt(
+    process.env.DB_QUERY_TIMEOUT_MS || "45000",
     10
   ),
   keepAlive: true,
@@ -88,36 +96,77 @@ const RETRIABLE_ERROR_CODES = new Set([
   "ENETUNREACH",
   "EHOSTUNREACH",
   "ECONNABORTED",
+  "57P01", // admin_shutdown
+  "57P02", // crash_shutdown
+  "57P03", // cannot_connect_now
 ]);
+
+const RETRIABLE_MESSAGE_SUBSTRINGS = [
+  "connection terminated unexpectedly",
+  "connection terminated due to connection timeout",
+  "terminating connection due to administrator command",
+  "server closed the connection unexpectedly",
+  "terminating connection because protocol synchronization was lost",
+  "remaining connection slots are reserved",
+  "too many clients already",
+  "pool is draining and cannot accept work",
+  "socket hang up",
+];
 
 const MAX_RETRIES = Math.max(
   1,
-  Number.parseInt(process.env.DB_QUERY_MAX_RETRIES || "3", 10)
+  Number.parseInt(process.env.DB_QUERY_MAX_RETRIES || "5", 10)
 );
 const BASE_DELAY_MS = Math.max(
   50,
-  Number.parseInt(process.env.DB_QUERY_RETRY_DELAY_MS || "200", 10)
+  Number.parseInt(process.env.DB_QUERY_RETRY_DELAY_MS || "250", 10)
 );
 const MAX_DELAY_MS = Math.max(
   BASE_DELAY_MS,
   Number.parseInt(process.env.DB_QUERY_MAX_DELAY_MS || "2000", 10)
 );
 
-const gatherErrorCodes = (error) => {
-  if (!error) return [];
-  const codes = [];
-  if (error.code) codes.push(error.code);
+const collectErrors = (error, callback, seen = new Set()) => {
+  if (!error || seen.has(error)) return;
+  seen.add(error);
+  callback(error);
   if (Array.isArray(error.errors)) {
-    error.errors.forEach((inner) => {
-      if (inner && inner.code) codes.push(inner.code);
-    });
+    error.errors.forEach((inner) => collectErrors(inner, callback, seen));
   }
+  if (error.cause && typeof error.cause === "object") {
+    collectErrors(error.cause, callback, seen);
+  }
+};
+
+const gatherErrorCodes = (error) => {
+  const codes = [];
+  collectErrors(error, (err) => {
+    if (err && err.code) {
+      codes.push(err.code);
+    }
+  });
   return codes;
+};
+
+const gatherErrorMessages = (error) => {
+  const messages = [];
+  collectErrors(error, (err) => {
+    if (err && err.message) {
+      messages.push(String(err.message).toLowerCase());
+    }
+  });
+  return messages;
 };
 
 const isRetriableError = (error) => {
   const codes = gatherErrorCodes(error);
-  return codes.some((code) => RETRIABLE_ERROR_CODES.has(code));
+  if (codes.some((code) => RETRIABLE_ERROR_CODES.has(code))) {
+    return true;
+  }
+  const messages = gatherErrorMessages(error);
+  return messages.some((msg) =>
+    RETRIABLE_MESSAGE_SUBSTRINGS.some((needle) => msg.includes(needle))
+  );
 };
 
 const queryWithRetry = async (text, params) => {

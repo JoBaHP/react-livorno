@@ -229,6 +229,12 @@ exports.placeDeliveryOrder = async (req, res) => {
     }
     deliveryFee = parseFloat(rows[0].delivery_fee);
   } catch (err) {
+    if (db.isConnectionError && db.isConnectionError(err)) {
+      console.error("Zone finding error (database unavailable):", err.message);
+      return res.status(503).json({
+        message: "Delivery calculator is temporarily unavailable. Please try again shortly.",
+      });
+    }
     console.error("Zone finding error:", err);
     return res.status(500).json({ message: "Error calculating delivery fee." });
   }
@@ -239,7 +245,20 @@ exports.placeDeliveryOrder = async (req, res) => {
     total += lineTotal;
   });
 
-  const client = await db.pool.connect();
+  let client;
+  try {
+    client = await db.pool.connect();
+  } catch (connErr) {
+    if (db.isConnectionError && db.isConnectionError(connErr)) {
+      console.error("Order placement error (connect):", connErr.message);
+      return res.status(503).json({
+        message: "Database connection is unavailable. Please try again in a moment.",
+      });
+    }
+    console.error("Order placement error (connect):", connErr);
+    return res.status(500).json({ message: "Server error while placing order." });
+  }
+
   try {
     await client.query("BEGIN");
     const orderResult = await client.query(
@@ -289,11 +308,23 @@ exports.placeDeliveryOrder = async (req, res) => {
     getIO().emit("new_order", finalOrder);
     res.status(201).json(finalOrder);
   } catch (err) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackErr) {
+      console.error("Order rollback failed:", rollbackErr);
+    }
+    if (db.isConnectionError && db.isConnectionError(err)) {
+      console.error("Order placement error (database unavailable):", err.message);
+      return res.status(503).json({
+        message: "Database connection interrupted while placing order. Please try again shortly.",
+      });
+    }
     console.error("Order placement error:", err);
     res.status(500).json({ message: "Server error while placing order." });
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 };
 

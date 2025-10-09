@@ -1,4 +1,217 @@
 const db = require("../config/db");
+const { menu: seedMenuData } = require("../data");
+
+const FALLBACK_PARENT_KEY = "food";
+
+let cachedMenuItems = null;
+let cachedCategories = null;
+
+function cloneMenuItems(sourceItems) {
+  if (!Array.isArray(sourceItems)) return [];
+  return sourceItems.map((item) => {
+    const sizes = Array.isArray(item.sizes)
+      ? item.sizes.map((size) => ({
+          name: size.name,
+          price: size.price,
+        }))
+      : null;
+    const options = Array.isArray(item.options)
+      ? item.options.map((opt) => ({
+          ...opt,
+          price: opt.price,
+        }))
+      : [];
+    const category =
+      Object.prototype.hasOwnProperty.call(item, "category") &&
+      item.category !== undefined
+        ? item.category
+        : null;
+    const sortOrderRaw = Object.prototype.hasOwnProperty.call(item, "sort_order")
+      ? item.sort_order
+      : Object.prototype.hasOwnProperty.call(item, "sortOrder")
+      ? item.sortOrder
+      : null;
+    const sortOrder =
+      typeof sortOrderRaw === "number"
+        ? sortOrderRaw
+        : typeof sortOrderRaw === "string" && sortOrderRaw !== ""
+        ? Number.parseInt(sortOrderRaw, 10)
+        : null;
+    const imageUrl = item.image_url || item.imageUrl || null;
+    const available =
+      typeof item.available === "boolean" ? item.available : true;
+
+    return {
+      id: item.id,
+      name: item.name,
+      category,
+      description:
+        Object.prototype.hasOwnProperty.call(item, "description") &&
+        item.description !== undefined
+          ? item.description
+          : null,
+      price:
+        Object.prototype.hasOwnProperty.call(item, "price") &&
+        item.price !== undefined
+          ? item.price
+          : null,
+      sizes,
+      available,
+      image_url: imageUrl,
+      options,
+      sort_order: sortOrder,
+    };
+  });
+}
+
+function cloneCategories(sourceCategories) {
+  if (!Array.isArray(sourceCategories)) return [];
+  return sourceCategories
+    .map((cat, index) => ({
+      name:
+        Object.prototype.hasOwnProperty.call(cat, "name") &&
+        cat.name !== undefined
+          ? cat.name
+          : null,
+      sortOrder:
+        typeof cat.sortOrder === "number"
+          ? cat.sortOrder
+          : typeof cat.sort_order === "number"
+          ? cat.sort_order
+          : typeof cat.sort_order === "string" && cat.sort_order !== ""
+          ? Number.parseInt(cat.sort_order, 10)
+          : index,
+      parentKey: cat.parentKey || cat.parent_key || FALLBACK_PARENT_KEY,
+    }))
+    .sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      const nameA = a.name ?? "";
+      const nameB = b.name ?? "";
+      return nameA.localeCompare(nameB);
+    });
+}
+
+function buildCategoriesFromMenuItems(menuItems) {
+  if (!Array.isArray(menuItems)) return [];
+  const unique = new Map();
+  menuItems.forEach((item) => {
+    const category =
+      Object.prototype.hasOwnProperty.call(item, "category") &&
+      item.category !== undefined
+        ? item.category
+        : null;
+    const key = category ?? "__null__";
+    if (!unique.has(key)) {
+      unique.set(key, category ?? null);
+    }
+  });
+  return Array.from(unique.values())
+    .sort((a, b) => {
+      if (a === null && b !== null) return 1;
+      if (b === null && a !== null) return -1;
+      if (a === null && b === null) return 0;
+      return String(a).localeCompare(String(b));
+    })
+    .map((name, index) => ({
+      name,
+      sortOrder: index,
+      parentKey: FALLBACK_PARENT_KEY,
+    }));
+}
+
+function deriveCategories(categoriesSource, menuItems) {
+  const cloned = cloneCategories(categoriesSource);
+  if (cloned.length > 0) {
+    return cloned;
+  }
+  return buildCategoriesFromMenuItems(menuItems);
+}
+
+function buildCategoryOrderMap(categories) {
+  const map = new Map();
+  categories.forEach((cat) => {
+    const key = cat.name ?? "__null__";
+    map.set(key, cat.sortOrder);
+  });
+  return map;
+}
+
+function sortMenuItems(items, sortDir, orderMap) {
+  const sorted = items.slice().sort((a, b) => {
+    const keyA = a.category ?? "__null__";
+    const keyB = b.category ?? "__null__";
+    const orderA = orderMap.has(keyA)
+      ? orderMap.get(keyA)
+      : Number.MAX_SAFE_INTEGER;
+    const orderB = orderMap.has(keyB)
+      ? orderMap.get(keyB)
+      : Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    const nameA = a.name || "";
+    const nameB = b.name || "";
+    return nameA.localeCompare(nameB);
+  });
+  return sortDir === "DESC" ? sorted.reverse() : sorted;
+}
+
+function buildMenuResponseFromSource({
+  itemsSource,
+  categoriesSource,
+  isPaged,
+  page,
+  limit,
+  sortDir,
+  categoryFilter,
+}) {
+  const items = cloneMenuItems(itemsSource);
+  const categories = deriveCategories(categoriesSource, items);
+  const orderMap = buildCategoryOrderMap(categories);
+  let filtered = items;
+  if (categoryFilter) {
+    if (categoryFilter === "__null__") {
+      filtered = items.filter((item) => item.category == null);
+    } else {
+      filtered = items.filter((item) => item.category === categoryFilter);
+    }
+  }
+  const sorted = sortMenuItems(filtered, sortDir, orderMap);
+  if (!isPaged) {
+    return sorted;
+  }
+  const total = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const offset = (page - 1) * limit;
+  const itemsPage = sorted.slice(offset, offset + limit);
+  return {
+    items: itemsPage,
+    page,
+    total,
+    totalPages,
+    limit,
+    categories,
+  };
+}
+
+function updateMenuCache(items) {
+  cachedMenuItems = cloneMenuItems(items);
+}
+
+function updateCategoriesCache(categories) {
+  cachedCategories = cloneCategories(categories);
+}
+
+function getCategoriesFallbackPayload() {
+  if (Array.isArray(cachedCategories) && cachedCategories.length > 0) {
+    return cachedCategories.map((cat) => ({ ...cat }));
+  }
+  const itemsSource =
+    Array.isArray(cachedMenuItems) && cachedMenuItems.length > 0
+      ? cachedMenuItems
+      : seedMenuData;
+  return deriveCategories(null, cloneMenuItems(itemsSource));
+}
 
 let categoryTableChecked = false;
 
@@ -51,17 +264,19 @@ async function syncCategoriesFromMenuItems() {
 }
 
 exports.getMenu = async (req, res) => {
+  const mode = req.query.mode || "";
+  const isPaged =
+    mode === "admin" || Boolean(req.query.page) || Boolean(req.query.limit);
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.max(
+    1,
+    Math.min(100, parseInt(req.query.limit, 10) || 10)
+  );
+  const rawSort = (req.query.sort || "asc").toLowerCase();
+  const sortDir = rawSort === "desc" ? "DESC" : "ASC";
+  const categoryFilter = req.query.category;
   try {
     await syncCategoriesFromMenuItems();
-    const mode = req.query.mode || '';
-    const isPaged = mode === 'admin' || req.query.page || req.query.limit;
-
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 10));
-    const rawSort = (req.query.sort || 'asc').toLowerCase();
-    const sortDir = rawSort === 'desc' ? 'DESC' : 'ASC';
-    const categoryFilter = req.query.category;
-
     const params = [];
     let whereClause = '';
     if (categoryFilter) {
@@ -133,6 +348,7 @@ exports.getMenu = async (req, res) => {
       if (uncategorizedResult.rows[0]?.has_uncategorized) {
         categories.push({ name: null, sortOrder: null });
       }
+      updateCategoriesCache(categories);
 
       return res.json({
         items: itemsWithOptions,
@@ -157,8 +373,29 @@ exports.getMenu = async (req, res) => {
       })
     );
 
+    updateMenuCache(menuWithOptions);
+
     return res.json(menuWithOptions);
   } catch (err) {
+    if (typeof db.isConnectionError === "function" && db.isConnectionError(err)) {
+      console.warn(
+        "Serving fallback menu data due to database connectivity issue:",
+        err.message
+      );
+      const fallbackPayload = buildMenuResponseFromSource({
+        itemsSource:
+          Array.isArray(cachedMenuItems) && cachedMenuItems.length > 0
+            ? cachedMenuItems
+            : seedMenuData,
+        categoriesSource: cachedCategories,
+        isPaged,
+        page,
+        limit,
+        sortDir,
+        categoryFilter,
+      });
+      return res.json(fallbackPayload);
+    }
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
@@ -181,8 +418,16 @@ exports.getMenuCategories = async (req, res) => {
     if (uncategorizedCheck[0]?.has_uncategorized) {
       categories.push({ name: null, sortOrder: null, parentKey: 'food' });
     }
+    updateCategoriesCache(categories);
     res.json({ categories });
   } catch (err) {
+    if (typeof db.isConnectionError === "function" && db.isConnectionError(err)) {
+      console.warn(
+        "Serving fallback menu categories due to database connectivity issue:",
+        err.message
+      );
+      return res.json({ categories: getCategoriesFallbackPayload() });
+    }
     console.error('Error fetching menu categories:', err);
     res.status(500).json({ message: 'Failed to fetch menu categories' });
   }

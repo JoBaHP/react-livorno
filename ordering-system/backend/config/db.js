@@ -59,11 +59,95 @@ const pool = new Pool({
         rejectUnauthorized: process.env.DB_SSL_STRICT === "true"
       }
     : false,
+  max: Number.parseInt(process.env.DB_POOL_MAX || "10", 10),
+  idleTimeoutMillis: Number.parseInt(
+    process.env.DB_IDLE_TIMEOUT_MS || "30000",
+    10
+  ),
+  connectionTimeoutMillis: Number.parseInt(
+    process.env.DB_CONNECTION_TIMEOUT_MS || "10000",
+    10
+  ),
+  keepAlive: true,
 });
+
+pool.on("error", (err) => {
+  console.error("Unexpected PostgreSQL pool error:", err);
+});
+
+const sleep = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const RETRIABLE_ERROR_CODES = new Set([
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "EAI_AGAIN",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+  "ECONNABORTED",
+]);
+
+const MAX_RETRIES = Math.max(
+  1,
+  Number.parseInt(process.env.DB_QUERY_MAX_RETRIES || "3", 10)
+);
+const BASE_DELAY_MS = Math.max(
+  50,
+  Number.parseInt(process.env.DB_QUERY_RETRY_DELAY_MS || "200", 10)
+);
+const MAX_DELAY_MS = Math.max(
+  BASE_DELAY_MS,
+  Number.parseInt(process.env.DB_QUERY_MAX_DELAY_MS || "2000", 10)
+);
+
+const gatherErrorCodes = (error) => {
+  if (!error) return [];
+  const codes = [];
+  if (error.code) codes.push(error.code);
+  if (Array.isArray(error.errors)) {
+    error.errors.forEach((inner) => {
+      if (inner && inner.code) codes.push(inner.code);
+    });
+  }
+  return codes;
+};
+
+const isRetriableError = (error) => {
+  const codes = gatherErrorCodes(error);
+  return codes.some((code) => RETRIABLE_ERROR_CODES.has(code));
+};
+
+const queryWithRetry = async (text, params) => {
+  let attempt = 0;
+  let lastError = null;
+  while (attempt < MAX_RETRIES) {
+    attempt += 1;
+    try {
+      return await pool.query(text, params);
+    } catch (error) {
+      lastError = error;
+      if (!isRetriableError(error) || attempt >= MAX_RETRIES) {
+        throw error;
+      }
+      const delay = Math.min(
+        BASE_DELAY_MS * 2 ** (attempt - 1),
+        MAX_DELAY_MS
+      );
+      console.warn(
+        `[db] Query attempt ${attempt} failed (${error.code || error.message}), retrying in ${delay}ms`
+      );
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+};
 
 const testConnection = async () => {
   try {
-    await pool.query("SELECT NOW()");
+    await queryWithRetry("SELECT NOW()");
     console.log(
       `✅ Successfully connected to PostgreSQL database. SSL=${sslOption ? "enabled" : "disabled"} (NODE_ENV=${
         process.env.NODE_ENV || "development"
@@ -75,7 +159,8 @@ const testConnection = async () => {
 };
 
 module.exports = {
-  query: (text, params) => pool.query(text, params),
+  query: (text, params) => queryWithRetry(text, params),
   pool,
   testConnection,
+  isConnectionError: (error) => isRetriableError(error),
 };

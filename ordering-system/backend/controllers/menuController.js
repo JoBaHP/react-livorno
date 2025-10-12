@@ -5,6 +5,9 @@ const FALLBACK_PARENT_KEY = "food";
 
 let cachedMenuItems = null;
 let cachedCategories = null;
+const MENU_CACHE_REFRESH_INTERVAL_MS = 60 * 1000;
+let lastMenuCacheRefresh = 0;
+let menuCacheRefreshPromise = null;
 
 function cloneMenuItems(sourceItems) {
   if (!Array.isArray(sourceItems)) return [];
@@ -202,6 +205,85 @@ function updateCategoriesCache(categories) {
   cachedCategories = cloneCategories(categories);
 }
 
+async function refreshMenuCache(force = false) {
+  const now = Date.now();
+  const hasCache =
+    Array.isArray(cachedMenuItems) && cachedMenuItems.length > 0;
+  if (!force && hasCache && now - lastMenuCacheRefresh < MENU_CACHE_REFRESH_INTERVAL_MS) {
+    return cachedMenuItems;
+  }
+  if (menuCacheRefreshPromise) {
+    return menuCacheRefreshPromise;
+  }
+
+  menuCacheRefreshPromise = (async () => {
+    const menuItemsResult = await db.query(
+      `SELECT menu_items.*, mc.sort_order
+       FROM menu_items
+       LEFT JOIN menu_categories mc ON menu_items.category = mc.name
+       ORDER BY menu_items.id ASC`
+    );
+    const allItems = menuItemsResult.rows;
+
+    const optionsResult = await db.query(
+      `SELECT mo.menu_item_id, o.id, o.name, o.price
+       FROM menu_item_options mo
+       JOIN options o ON o.id = mo.option_id`
+    );
+    const optionsByItem = new Map();
+    optionsResult.rows.forEach((row) => {
+      if (!optionsByItem.has(row.menu_item_id)) {
+        optionsByItem.set(row.menu_item_id, []);
+      }
+      optionsByItem.get(row.menu_item_id).push({
+        id: row.id,
+        name: row.name,
+        price: row.price,
+      });
+    });
+
+    const itemsWithOptions = allItems.map((item) => ({
+      ...item,
+      options: optionsByItem.get(item.id) || [],
+    }));
+    updateMenuCache(itemsWithOptions);
+
+    try {
+      const categoriesResult = await db.query(
+        "SELECT name, sort_order, parent_key FROM menu_categories ORDER BY sort_order ASC, name ASC"
+      );
+      const categories = categoriesResult.rows.map((row) => ({
+        name: row.name,
+        sortOrder: row.sort_order,
+        parentKey: row.parent_key,
+      }));
+      const uncategorizedResult = await db.query(
+        "SELECT EXISTS (SELECT 1 FROM menu_items WHERE category IS NULL) AS has_uncategorized"
+      );
+      if (uncategorizedResult.rows[0]?.has_uncategorized) {
+        categories.push({
+          name: null,
+          sortOrder: null,
+          parentKey: FALLBACK_PARENT_KEY,
+        });
+      }
+      updateCategoriesCache(categories);
+    } catch (catError) {
+      console.warn(
+        "Unable to refresh menu categories cache:",
+        catError.message
+      );
+    }
+
+    lastMenuCacheRefresh = Date.now();
+    return cachedMenuItems;
+  })().finally(() => {
+    menuCacheRefreshPromise = null;
+  });
+
+  return menuCacheRefreshPromise;
+}
+
 function getCategoriesFallbackPayload() {
   if (Array.isArray(cachedCategories) && cachedCategories.length > 0) {
     return cachedCategories.map((cat) => ({ ...cat }));
@@ -349,6 +431,9 @@ exports.getMenu = async (req, res) => {
         categories.push({ name: null, sortOrder: null });
       }
       updateCategoriesCache(categories);
+      refreshMenuCache().catch((err) => {
+        console.warn("Background menu cache refresh failed:", err.message);
+      });
 
       return res.json({
         items: itemsWithOptions,
@@ -470,6 +555,14 @@ exports.addMenuItem = async (req, res) => {
     }
 
     await db.query("COMMIT");
+    try {
+      await refreshMenuCache(true);
+    } catch (cacheError) {
+      console.warn(
+        "Menu cache refresh after addMenuItem failed:",
+        cacheError.message
+      );
+    }
     res.status(201).json(newItem);
   } catch (err) {
     await db.query("ROLLBACK");
@@ -520,6 +613,14 @@ exports.updateMenuItem = async (req, res) => {
     }
 
     await db.query("COMMIT");
+    try {
+      await refreshMenuCache(true);
+    } catch (cacheError) {
+      console.warn(
+        "Menu cache refresh after updateMenuItem failed:",
+        cacheError.message
+      );
+    }
     res.json(updatedItem);
   } catch (err) {
     await db.query("ROLLBACK");
@@ -532,6 +633,14 @@ exports.deleteMenuItem = async (req, res) => {
   const { id } = req.params;
   try {
     await db.query("DELETE FROM menu_items WHERE id = $1", [id]);
+    try {
+      await refreshMenuCache(true);
+    } catch (cacheError) {
+      console.warn(
+        "Menu cache refresh after deleteMenuItem failed:",
+        cacheError.message
+      );
+    }
     res.status(204).send();
   } catch (err) {
     console.error(err);
@@ -574,6 +683,14 @@ exports.reorderCategories = async (req, res) => {
       ]);
     }
     await db.query('COMMIT');
+    try {
+      await refreshMenuCache(true);
+    } catch (cacheError) {
+      console.warn(
+        "Menu cache refresh after reorderCategories failed:",
+        cacheError.message
+      );
+    }
 
     return res.json({ success: true, order: finalOrder });
   } catch (err) {
@@ -589,3 +706,5 @@ exports.reorderCategories = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
+exports.primeMenuCache = refreshMenuCache;

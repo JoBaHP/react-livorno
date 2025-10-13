@@ -7,7 +7,6 @@ require("dotenv").config();
 
 const { initSocket } = require("./socket");
 const { testConnection } = require("./config/db");
-const { primeMenuCache } = require("./controllers/menuController");
 const menuRoutes = require("./routes/menuRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const mainRoutes = require("./routes/mainRoutes");
@@ -58,7 +57,4 @@ server.listen(PORT, () => {
   console.log(`🚀 Backend server is running on http://localhost:${PORT}`);
   console.log("CORS allowed origins:", allowedOrigins);
   testConnection();
-  primeMenuCache().catch((err) => {
-    console.warn("Initial menu cache prime failed:", err.message);
-  });
 });

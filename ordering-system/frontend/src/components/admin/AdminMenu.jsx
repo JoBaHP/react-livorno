@@ -16,6 +16,7 @@ export default function AdminMenu() {
   const queryClient = useQueryClient();
   const ITEMS_PER_PAGE = 10;
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [categorySortAsc, setCategorySortAsc] = useState(true);
   const [isReorderOpen, setIsReorderOpen] = useState(false);
@@ -112,10 +113,39 @@ export default function AdminMenu() {
     };
   }, [data]);
 
-  const totalPages = normalized.totalPages || 1;
   useEffect(() => {
-    setPage((prev) => Math.min(prev, totalPages));
-  }, [totalPages]);
+    if (!data) return;
+
+    let nextTotalPages = 1;
+    if (Array.isArray(data)) {
+      nextTotalPages = 1;
+    } else if (typeof data === "object" && data !== null) {
+      if (typeof data.totalPages === "number" && data.totalPages > 0) {
+        nextTotalPages = data.totalPages;
+      } else if (
+        typeof data.total === "number" &&
+        data.total >= 0 &&
+        Array.isArray(data.items)
+      ) {
+        const limitValue =
+          typeof data.limit === "number" && data.limit > 0
+            ? data.limit
+            : ITEMS_PER_PAGE;
+        nextTotalPages = Math.max(
+          1,
+          Math.ceil(data.total / Math.max(1, limitValue))
+        );
+      }
+    }
+
+    setTotalPages((prev) => (prev === nextTotalPages ? prev : nextTotalPages));
+
+    if (page > nextTotalPages) {
+      setPage(nextTotalPages);
+    } else if (page < 1) {
+      setPage(1);
+    }
+  }, [data, page]);
 
   const paginatedMenu = normalized.items || [];
   const categoryOptions = useMemo(() => {

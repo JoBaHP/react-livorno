@@ -325,15 +325,34 @@ exports.getMenu = async (req, res) => {
       const menuItemsResult = await db.query(paginatedQuery, menuQueryParams);
       const menuItems = menuItemsResult.rows;
 
-      const itemsWithOptions = await Promise.all(
-        menuItems.map(async (item) => {
-          const optionsResult = await db.query(
-            "SELECT o.id, o.name, o.price FROM options o JOIN menu_item_options mo ON o.id = mo.option_id WHERE mo.menu_item_id = $1",
-            [item.id]
-          );
-          return { ...item, options: optionsResult.rows };
-        })
-      );
+      const optionsByItem = new Map();
+      const menuItemIds = menuItems.map((item) => item.id);
+      if (menuItemIds.length > 0) {
+        const optionsResult = await db.query(
+          `SELECT mo.menu_item_id AS menu_item_id, o.id, o.name, o.price
+           FROM menu_item_options mo
+           JOIN options o ON o.id = mo.option_id
+           WHERE mo.menu_item_id = ANY($1::int[])
+           ORDER BY mo.menu_item_id ASC, o.name ASC`,
+          [menuItemIds]
+        );
+
+        optionsResult.rows.forEach((row) => {
+          if (!optionsByItem.has(row.menu_item_id)) {
+            optionsByItem.set(row.menu_item_id, []);
+          }
+          optionsByItem.get(row.menu_item_id).push({
+            id: row.id,
+            name: row.name,
+            price: row.price,
+          });
+        });
+      }
+
+      const itemsWithOptions = menuItems.map((item) => ({
+        ...item,
+        options: optionsByItem.get(item.id) || [],
+      }));
 
       const categoriesResult = await db.query(
         "SELECT name, sort_order FROM menu_categories ORDER BY sort_order ASC, name ASC"
@@ -363,15 +382,34 @@ exports.getMenu = async (req, res) => {
     const menuItemsResult = await db.query(menuQuery, menuQueryParams);
     const menuItems = menuItemsResult.rows;
 
-    const menuWithOptions = await Promise.all(
-      menuItems.map(async (item) => {
-        const optionsResult = await db.query(
-          "SELECT o.id, o.name, o.price FROM options o JOIN menu_item_options mo ON o.id = mo.option_id WHERE mo.menu_item_id = $1",
-          [item.id]
-        );
-        return { ...item, options: optionsResult.rows };
-      })
-    );
+    const optionsByItem = new Map();
+    const menuItemIds = menuItems.map((item) => item.id);
+    if (menuItemIds.length > 0) {
+      const optionsResult = await db.query(
+        `SELECT mo.menu_item_id AS menu_item_id, o.id, o.name, o.price
+         FROM menu_item_options mo
+         JOIN options o ON o.id = mo.option_id
+         WHERE mo.menu_item_id = ANY($1::int[])
+         ORDER BY mo.menu_item_id ASC, o.name ASC`,
+        [menuItemIds]
+      );
+
+      optionsResult.rows.forEach((row) => {
+        if (!optionsByItem.has(row.menu_item_id)) {
+          optionsByItem.set(row.menu_item_id, []);
+        }
+        optionsByItem.get(row.menu_item_id).push({
+          id: row.id,
+          name: row.name,
+          price: row.price,
+        });
+      });
+    }
+
+    const menuWithOptions = menuItems.map((item) => ({
+      ...item,
+      options: optionsByItem.get(item.id) || [],
+    }));
 
     updateMenuCache(menuWithOptions);
 

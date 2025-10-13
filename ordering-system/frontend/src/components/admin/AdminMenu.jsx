@@ -16,6 +16,7 @@ export default function AdminMenu() {
   const queryClient = useQueryClient();
   const ITEMS_PER_PAGE = 10;
   const [page, setPage] = useState(1);
+  const [knownTotalPages, setKnownTotalPages] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [categorySortAsc, setCategorySortAsc] = useState(true);
   const [isReorderOpen, setIsReorderOpen] = useState(false);
@@ -112,10 +113,34 @@ export default function AdminMenu() {
     };
   }, [data]);
 
-  const totalPages = normalized.totalPages || 1;
   useEffect(() => {
-    setPage((prev) => Math.min(prev, totalPages));
-  }, [totalPages]);
+    if (!data) return;
+    let nextTotalPages = 1;
+    if (Array.isArray(data)) {
+      const derived =
+        typeof normalized.totalPages === "number" && normalized.totalPages > 0
+          ? normalized.totalPages
+          : 1;
+      nextTotalPages = derived;
+    } else if (typeof data === "object") {
+      const total =
+        typeof data.totalPages === "number" && data.totalPages > 0
+          ? data.totalPages
+          : 1;
+      nextTotalPages = total;
+    }
+    setKnownTotalPages((prev) =>
+      prev === nextTotalPages ? prev : nextTotalPages
+    );
+  }, [data, normalized.totalPages]);
+
+  useEffect(() => {
+    setPage((prev) =>
+      prev > knownTotalPages ? knownTotalPages : Math.max(prev, 1)
+    );
+  }, [knownTotalPages]);
+
+  const totalPages = knownTotalPages;
 
   const paginatedMenu = normalized.items || [];
   const categoryOptions = useMemo(() => {

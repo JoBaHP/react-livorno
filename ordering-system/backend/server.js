@@ -6,7 +6,7 @@ const cookieParser = require("cookie-parser");
 require("dotenv").config();
 
 const { initSocket } = require("./socket");
-const { testConnection } = require("./config/db");
+const { testConnection, query: dbQuery } = require("./config/db");
 const menuRoutes = require("./routes/menuRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const mainRoutes = require("./routes/mainRoutes");
@@ -52,9 +52,49 @@ app.get('/', (req, res) => {
 // Silence browser favicon requests (avoid ORB/CSP warnings when viewing root)
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
+const KEEPALIVE_INTERVAL_MS = Math.max(
+  0,
+  Number.parseInt(process.env.DB_KEEPALIVE_INTERVAL_MS || "240000", 10)
+);
+let keepAliveTimer = null;
+
+const startKeepAlive = () => {
+  if (KEEPALIVE_INTERVAL_MS <= 0) return;
+  const runKeepAlive = async () => {
+    try {
+      await dbQuery("SELECT 1");
+    } catch (err) {
+      console.warn(
+        "[db] keepalive query failed:",
+        err?.code || err?.message || err
+      );
+    }
+  };
+  // Prime the cache once so we catch failures early
+  runKeepAlive();
+  keepAliveTimer = setInterval(runKeepAlive, KEEPALIVE_INTERVAL_MS);
+  if (typeof keepAliveTimer.unref === "function") {
+    keepAliveTimer.unref();
+  }
+};
+
+const stopKeepAlive = () => {
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = null;
+  }
+};
+
+["SIGINT", "SIGTERM", "SIGUSR2"].forEach((signal) => {
+  process.on(signal, () => {
+    stopKeepAlive();
+  });
+});
+
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Backend server is running on http://localhost:${PORT}`);
   console.log("CORS allowed origins:", allowedOrigins);
   testConnection();
+  startKeepAlive();
 });

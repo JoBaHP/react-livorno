@@ -106,9 +106,6 @@ export default function CustomerView({ tableId }) {
         <p className="text-slate-600">
           Please scan a QR code on your table to start ordering.
         </p>
-        <p className="text-slate-500 text-sm mt-4">
-          To simulate, add `?table=1` to the URL.
-        </p>
       </div>
     );
   if (orderStatus)

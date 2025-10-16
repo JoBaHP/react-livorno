@@ -25,7 +25,6 @@ const resources = {
       // CustomerView misc
       no_table_selected: 'No Table Selected',
       scan_qr_prompt: 'Please scan a QR code on your table to start ordering.',
-      simulate_table_hint: 'To simulate, add `?table=1` to the URL.',
       customization: {
         size: 'Size',
         extras: 'Extras',
@@ -262,7 +261,6 @@ const resources = {
       // CustomerView misc
       no_table_selected: 'Nije izabran sto',
       scan_qr_prompt: 'Skenirajte QR kod na stolu da započnete poručivanje.',
-      simulate_table_hint: 'Za simulaciju dodajte `?table=1` u URL.',
       customization: {
         size: 'Veličina',
         extras: 'Dodaci',

@@ -257,9 +257,6 @@ export default function CustomerView({
           {t("no_table_selected")}
         </h2>
         <p className="text-slate-600">{t("scan_qr_prompt")}</p>
-        <p className="text-slate-500 text-sm mt-4">
-          {t("simulate_table_hint")}
-        </p>
       </div>
     );
 

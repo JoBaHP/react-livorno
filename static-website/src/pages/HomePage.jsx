@@ -10,12 +10,20 @@ import {
   Laurels,
 } from "../container";
 import { Navbar } from "../components";
+import Maintenance from "../components/Maintenance/Maintenance"; // Adjust path as needed
 import ReactGA from "react-ga4";
 
 const HomePage = () => {
+  const isMaintenanceMode = true; // Set to true to enable maintenance mode
+
   useEffect(() => {
     ReactGA.send({ hitType: "pageview", page: "/", title: "Home Page" });
   }, []);
+
+  if (isMaintenanceMode) {
+    return <Maintenance />;
+  }
+
   return (
     <div>
       <Navbar />

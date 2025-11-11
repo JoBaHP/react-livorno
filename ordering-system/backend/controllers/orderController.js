@@ -120,7 +120,21 @@ exports.placeOrder = async (req, res) => {
     total += (basePrice + optionsPerUnit) * itemQuantity;
   });
 
-  const client = await db.pool.connect();
+  let client;
+  try {
+    client = await db.pool.connect();
+  } catch (err) {
+    console.error("Failed to obtain DB client for placeOrder:", err);
+    const status = db.isConnectionError && db.isConnectionError(err) ? 503 : 500;
+    return res
+      .status(status)
+      .json({
+        message:
+          status === 503
+            ? "Temporarily unable to reach the database. Please try again in a moment."
+            : "Server error",
+      });
+  }
   try {
     await client.query("BEGIN");
     const orderResult = await client.query(
@@ -155,7 +169,9 @@ exports.placeOrder = async (req, res) => {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 };
 

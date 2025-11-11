@@ -54,6 +54,7 @@ const resources = {
         increment: '{{name}} quantity increased',
         decrement: '{{name}} quantity decreased',
         placed: 'Thanks! Your order is on the way.',
+        failed: 'Could not place order. Please try again.',
       },
       // Admin/Staff common
       staff_panel_title: 'Staff Panel',
@@ -290,6 +291,7 @@ const resources = {
         increment: 'Povećana količina za {{name}}',
         decrement: 'Smanjena količina za {{name}}',
         placed: 'Hvala! Vaša porudžbina je prosleđena.',
+        failed: 'Porudžbina trenutno nije moguća. Pokušajte ponovo.',
       },
       // Admin/Staff common
       staff_panel_title: 'Panel osoblja',

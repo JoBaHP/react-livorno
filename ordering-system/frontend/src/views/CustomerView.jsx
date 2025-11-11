@@ -230,15 +230,21 @@ export default function CustomerView({
     if (cart.length === 0 || !tableId) return;
     playNotificationSound();
     setIsPlacing(true);
-    const newOrder = await api.placeOrder(cart, tableId, notes, paymentMethod);
-    dispatch(setOrder(newOrder));
-    dispatch(clearCart());
-    if (typeof onActiveOrderUpdate === "function") {
-      onActiveOrderUpdate(newOrder);
+    try {
+      const newOrder = await api.placeOrder(cart, tableId, notes, paymentMethod);
+      dispatch(setOrder(newOrder));
+      dispatch(clearCart());
+      if (typeof onActiveOrderUpdate === "function") {
+        onActiveOrderUpdate(newOrder);
+      }
+      goToStatus();
+      showToast(t("toast.placed"));
+    } catch (err) {
+      console.error("Failed to place order:", err);
+      showToast(t("toast.failed"));
+    } finally {
+      setIsPlacing(false);
     }
-    goToStatus();
-    showToast(t("toast.placed"));
-    setIsPlacing(false);
   };
 
   const handleQuantityChange = (cartItem, amount) => {

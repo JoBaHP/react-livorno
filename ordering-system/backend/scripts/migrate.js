@@ -1,9 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// Ensure environment variables (DATABASE_URL, etc.) are loaded before requiring db config
-const envPath = path.resolve(__dirname, '..', '.env');
-require('dotenv').config({ path: envPath });
+// Expect environment variables (DATABASE_URL, etc.) to be loaded before requiring db config
 
 const db = require('../config/db');
 

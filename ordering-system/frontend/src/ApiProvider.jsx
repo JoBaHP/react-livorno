@@ -11,6 +11,16 @@ const fetchOptions = {
 
 const ApiContext = createContext();
 
+const safeParseJson = async (response, key) => {
+  try {
+    const data = await response.clone().json();
+    if (!key) return data;
+    return typeof data === "object" && data !== null ? data[key] : undefined;
+  } catch (err) {
+    return undefined;
+  }
+};
+
 export const ApiProvider = ({ children }) => {
   const api = {
     getMenu: async (params = {}) => {
@@ -104,6 +114,10 @@ export const ApiProvider = ({ children }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cart, tableId, notes, paymentMethod }),
       });
+      if (!response.ok) {
+        const message = await safeParseJson(response, "message");
+        throw new Error(message || "Failed to place order");
+      }
       return response.json();
     },
     updateOrderStatus: async (orderId, status, waitTime = null) => {

@@ -3,7 +3,6 @@ const http = require("http");
 const cors = require("cors");
 const compression = require("compression");
 const cookieParser = require("cookie-parser");
-require("dotenv").config();
 
 const { initSocket } = require("./socket");
 const { testConnection, query: dbQuery } = require("./config/db");
